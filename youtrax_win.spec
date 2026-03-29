@@ -38,11 +38,14 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# Single-file mode: binaries and datas are bundled directly into the .exe.
+# PyInstaller extracts to a temp folder on first run — no separate folder needed.
 exe = EXE(
     pyz,
     a.scripts,
-    [],
-    exclude_binaries=True,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     name='YouTrax',
     debug=False,
     bootloader_ignore_signals=False,
@@ -55,15 +58,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='youtrax.ico',
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=False,
-    upx_exclude=[],
-    name='YouTrax',
+    onefile=True,
 )
