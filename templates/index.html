@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTrax</title>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <style>
+    /* Lucide icon baseline sizing */
+    [data-lucide] { display: inline-block; vertical-align: middle; }
+    .icon-sm  { width: 14px; height: 14px; stroke-width: 2.5; }
+    .icon-md  { width: 18px; height: 18px; stroke-width: 2; }
+    .icon-lg  { width: 24px; height: 24px; stroke-width: 2; }
+    .icon-xl  { width: 36px; height: 36px; stroke-width: 1.5; }
+  </style>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f0f13;
+      --surface:  #1a1a24;
+      --border:   #2e2e42;
+      --accent:   #6c63ff;
+      --accent-h: #8b85ff;
+      --text:     #e8e8f0;
+      --muted:    #8888aa;
+      --success:  #4caf82;
+      --error:    #e05c5c;
+      --radius:   12px;
+    }
+
+    [data-theme="light"] {
+      --bg:       #d8d8e0;
+      --surface:  #e4e4ec;
+      --border:   #bebece;
+      --text:     #1a1a2e;
+      --muted:    #606080;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ── Card ── */
+    .card {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 1200px;
+      box-shadow: none;
+    }
+
+    /* ── Top bar (always visible) ── */
+    .top-bar {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .top-bar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon {
+      width: 30px; height: 30px;
+      flex-shrink: 0;
+    }
+    h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
+    .subtitle { font-size: .75rem; color: var(--muted); margin-top: 1px; }
+
+    /* ── URL input row ── */
+    .url-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .url-row input {
+      flex: 1;
+      padding: 10px 13px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: .92rem;
+      outline: none;
+      transition: border-color .15s;
+      min-width: 0;
+    }
+    .url-row input:focus { border-color: var(--accent); }
+    .url-row input::placeholder { color: var(--muted); }
+    .fetch-btn {
+      flex-shrink: 0;
+      padding: 0 16px;
+      height: 42px;
+      align-self: center;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: .88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+      white-space: nowrap;
+    }
+    .fetch-btn:hover:not(:disabled) { background: var(--accent-h); }
+    .fetch-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Tab bar ── */
+    .tab-bar {
+      display: none;
+      flex-direction: row;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-bar.has-tabs { display: flex; }
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 14px;
+      font-size: .8rem;
+      font-weight: 500;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: color .15s, border-color .15s;
+      user-select: none;
+      max-width: 180px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .tab-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 120px;
+    }
+    .tab-status {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .tab-status.idle    { background: var(--border); }
+    .tab-status.pending { background: #f5a623; }
+    .tab-status.done    { background: var(--success); }
+    .tab-status.error   { background: var(--error); }
+    .tab-close {
+      flex-shrink: 0;
+      font-size: .75rem;
+      color: var(--muted);
+      padding: 1px 2px;
+      border-radius: 3px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity .1s, background .1s, color .1s;
+    }
+    .tab:hover .tab-close { opacity: 1; }
+    .tab-close:hover { background: var(--border); color: var(--text); }
+
+    /* ── Content area ── */
+    .content {
+      padding: 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: border-color .2s, background .2s;
+    }
+    .empty-state.drag-active {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.06);
+    }
+    .empty-state .empty-icon { font-size: 2rem; margin-bottom: 10px; opacity: .5; }
+    .empty-state .empty-title { font-size: .95rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .empty-state .empty-sub { font-size: .8rem; }
+
+    /* ── Form elements ── */
+    label {
+      display: block;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 6px;
+    }
+    .field { margin-bottom: 14px; }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 13px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: .92rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="text"]:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+
+    select {
+      width: 100%;
+      padding: 10px 13px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: .92rem;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238888aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 13px center;
+      padding-right: 34px;
+      transition: border-color .15s;
+    }
+    select:focus { border-color: var(--accent); }
+
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+      margin-top: 4px;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Settings button ── */
+    .settings-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.05rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      width: auto;
+      border-radius: 6px;
+      line-height: 1;
+      transition: color .15s, background .15s;
+    }
+    .settings-btn:hover { color: var(--text); background: var(--border); }
+    .settings-btn.active { color: var(--accent); background: rgba(108,99,255,.12); }
+
+    /* ── Source title reference bar ── */
+    .source-title-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .source-title-label {
+      font-size: .7rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      flex-shrink: 0;
+    }
+    .source-title-text {
+      flex: 1;
+      font-size: .88rem;
+      color: var(--text);
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 0;
+      min-width: 0;
+      cursor: text;
+      font-family: inherit;
+    }
+    .source-title-btn {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 6px;
+      width: auto;
+      border-radius: 5px;
+      font-size: .85rem;
+      line-height: 1;
+      transition: color .15s, background .15s;
+    }
+    .source-title-btn:hover { color: var(--text); background: var(--border); }
+
+    /* ── Tags two-column layout ── */
+    .tags-layout {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+    .tags-col-left {
+      flex: 0 0 42%;
+      min-width: 0;
+    }
+    .tags-col-right {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Artwork ── */
+    .artwork-preview {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 10px;
+      border: 2px dashed var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      opacity: .5;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .artwork-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .artwork-preview.has-art { border-style: solid; border-color: var(--accent); opacity: 1; }
+    .artwork-preview.drag-over {
+      border-style: solid;
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.1);
+      opacity: 1;
+    }
+    .artwork-btn-row { display: flex; gap: 7px; margin-bottom: 10px; }
+    .artwork-search-btn {
+      flex: 1;
+      padding: 8px 13px;
+      font-size: .85rem;
+      font-weight: 600;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+    .artwork-search-btn:hover:not(:disabled) { background: var(--accent-h); }
+    .artwork-search-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .artwork-clear-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .8rem;
+      padding: 6px 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+      white-space: nowrap;
+    }
+    .artwork-clear-btn:hover:not(:disabled) { border-color: var(--error); color: var(--error); }
+
+    /* ── Image grid ── */
+    .artwork-grid {
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+    .artwork-grid.visible { display: grid; }
+    .artwork-grid-item {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color .15s, transform .1s;
+    }
+    .artwork-grid-item:hover { transform: scale(1.04); }
+    .artwork-grid-item.selected { border-color: var(--accent); }
+    .artwork-grid-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .artwork-grid-loading, .artwork-grid-empty {
+      display: none;
+      font-size: .78rem;
+      color: var(--muted);
+      text-align: center;
+      padding: 10px 0;
+      margin-bottom: 14px;
+    }
+    .artwork-grid-loading.visible, .artwork-grid-empty.visible { display: block; }
+
+    /* ── Progress ── */
+    .status-label {
+      font-size: .83rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-label span { color: var(--text); font-weight: 600; }
+    .bar-wrap {
+      height: 7px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width .3s ease;
+      width: 0%;
+    }
+    .bar.indeterminate {
+      width: 40% !important;
+      animation: slide 1.2s ease-in-out infinite;
+    }
+    @keyframes slide {
+      0%   { margin-left: -40%; }
+      100% { margin-left: 100%; }
+    }
+    .meta { display: flex; gap: 16px; font-size: .76rem; color: var(--muted); }
+
+    /* ── Settings drawer ── */
+    .settings-drawer {
+      position: absolute;
+      inset: 0;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 24px;
+      transform: translateX(100%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+      z-index: 10;
+    }
+    .settings-drawer.open { transform: translateX(0); }
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .drawer-title { font-size: 1rem; font-weight: 700; }
+    .drawer-close {
+      background: none; border: none; color: var(--muted);
+      font-size: 1.1rem; cursor: pointer; padding: 4px 6px;
+      width: auto; border-radius: 6px; line-height: 1;
+      transition: color .15s, background .15s;
+    }
+    .drawer-close:hover { color: var(--text); background: var(--border); }
+    .folder-row { display: flex; gap: 8px; align-items: stretch; }
+    .folder-path {
+      flex: 1; padding: 9px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: .86rem; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; min-width: 0; cursor: default;
+    }
+    .folder-path.placeholder { color: var(--muted); }
+    .browse-btn {
+      flex-shrink: 0; padding: 9px 13px; width: auto;
+      background: var(--border); color: var(--text);
+      font-size: .83rem; font-weight: 600; border-radius: 8px; cursor: pointer;
+      border: none; transition: background .15s;
+    }
+    .browse-btn:hover:not(:disabled) { background: #3a3a52; }
+    [data-theme="light"] .browse-btn { background: var(--border); color: var(--text); }
+    [data-theme="light"] .browse-btn:hover:not(:disabled) { background: #c8c8dc; }
+    .settings-hint { font-size: .73rem; color: var(--muted); margin-top: 7px; }
+
+    /* ── Theme toggle ── */
+    .theme-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .theme-label { font-size: .85rem; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+      left: 3px; top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .toggle-switch input:checked + .toggle-track { background: var(--accent); }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      top: 20px; left: 50%;
+      transform: translateX(-50%) translateY(-120px);
+      background: var(--surface);
+      border: 1px solid var(--success);
+      border-radius: 10px;
+      padding: 13px 18px;
+      display: flex; align-items: center; gap: 11px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.5);
+      z-index: 1000; max-width: 90%; opacity: 0;
+      transition: transform .35s ease, opacity .35s ease;
+    }
+    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.error { border-color: var(--error); }
+    .toast-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .toast-body { flex: 1; min-width: 0; }
+    .toast-title { font-size: .83rem; font-weight: 600; color: var(--success); word-break: break-all; }
+    .toast.error .toast-title { color: var(--error); }
+    .toast-sub { font-size: .73rem; color: var(--muted); margin-top: 2px; }
+    .toast-close {
+      background: none; border: none; color: var(--muted);
+      font-size: 1.05rem; cursor: pointer; padding: 0 2px; width: auto; line-height: 1;
+    }
+    .toast-close:hover { color: var(--text); }
+
+    /* ── Screens inside content ── */
+    .tab-screen { display: none; }
+    .tab-screen.active { display: block; }
+
+    /* ── Drag-and-drop overlay ── */
+    .drop-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(108, 99, 255, 0.12);
+      border: 3px dashed var(--accent);
+      border-radius: var(--radius);
+      pointer-events: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .drop-overlay.active { display: flex; }
+    .drop-overlay-icon { font-size: 3rem; }
+    .drop-overlay-text {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -.01em;
+    }
+    .drop-overlay-sub {
+      font-size: .82rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+
+    <!-- ── Always-visible top bar ── -->
+    <div class="top-bar">
+      <div class="top-bar-header">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg width="30" height="30" viewBox="-4 -4 32 32" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="logo-bg" x1="-4" y1="-4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#8b5cf6"/>
+                  <stop offset="100%" stop-color="#3730a3"/>
+                </linearGradient>
+              </defs>
+              <rect x="-4" y="-4" width="32" height="32" rx="6.5" fill="url(#logo-bg)"/>
+              <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"
+                    fill="white" fill-opacity="0.14" stroke="white" stroke-opacity="0.52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="7.5" cy="7.5" r="0.8" fill="white" fill-opacity="0.52"/>
+              <line x1="12" y1="5" x2="12" y2="13.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              <polyline points="8.5,10 12,14 15.5,10" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <h1>YouTrax</h1>
+            <div class="subtitle">320 kbps MP3 converter · powered by dropcap</div>
+          </div>
+        </div>
+        <button class="settings-btn" id="settings-btn" type="button" title="Settings"><i data-lucide="settings" class="icon-md"></i></button>
+      </div>
+      <div class="url-row">
+        <input
+          id="url-input"
+          type="url"
+          placeholder="https://www.youtube.com/watch?v=..."
+          autocomplete="off"
+        />
+        <button class="fetch-btn" id="fetch-btn" type="button">Convert</button>
+      </div>
+    </div>
+
+    <!-- ── Tab bar ── -->
+    <div class="tab-bar" id="tab-bar"></div>
+
+    <!-- ── Content area ── -->
+    <div class="content" id="content">
+      <div class="empty-state" id="empty-drop-zone">
+        <div class="empty-icon"><i data-lucide="link-2" class="icon-xl"></i></div>
+        <div class="empty-title">Drag a YouTube URL here</div>
+        <div class="empty-sub">or paste a link in the search bar above</div>
+      </div>
+    </div>
+
+    <!-- ── Settings drawer ── -->
+    <div class="settings-drawer" id="settings-drawer">
+      <div class="drawer-header">
+        <span class="drawer-title">Settings</span>
+        <button class="drawer-close" id="drawer-close" type="button"><i data-lucide="x" class="icon-md"></i></button>
+      </div>
+      <div class="field">
+        <label>Download folder</label>
+        <div class="folder-row">
+          <div class="folder-path placeholder" id="folder-path">~/Downloads (default)</div>
+          <button class="browse-btn" id="browse-btn" type="button">Browse…</button>
+        </div>
+        <div class="settings-hint">MP3 files are saved here after conversion.</div>
+      </div>
+      <div class="field theme-row">
+        <span class="theme-label">
+          <i data-lucide="sun" class="icon-md"></i> Light mode
+        </span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="theme-toggle" />
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Drag-and-drop overlay ── -->
+  <div class="drop-overlay" id="drop-overlay">
+    <div class="drop-overlay-icon"><i data-lucide="link-2" class="icon-xl"></i></div>
+    <div class="drop-overlay-text">Drop URL to add tab</div>
+    <div class="drop-overlay-sub">Release to fetch info and open a new tab</div>
+  </div>
+
+  <!-- ── Toast ── -->
+  <div class="toast" id="toast">
+    <div class="toast-icon" id="toast-icon"></div>
+    <div class="toast-body">
+      <div class="toast-title" id="toast-title"></div>
+      <div class="toast-sub" id="toast-sub"></div>
+    </div>
+    <button class="toast-close" id="toast-close"><i data-lucide="x" class="icon-sm"></i></button>
+  </div>
+
+  <script>
+    /* ══════════════════════════════════════════════════════
+       STATE
+    ══════════════════════════════════════════════════════ */
+    let tabs = [];          // array of tab objects
+    let activeTabId = null;
+    let tabCounter = 0;
+    let savedDownloadDir = '';
+    let toastTimer = null;
+
+    // Tab object shape:
+    // { id, url, label, title, artist, album, genre,
+    //   artworkThumb, artworkFull,
+    //   status: 'tags' | 'downloading' | 'done' | 'error',
+    //   jobId, sse, percent, statusMsg, speed, eta, filename, error }
+
+    /* ══════════════════════════════════════════════════════
+       DOM REFS
+    ══════════════════════════════════════════════════════ */
+    const urlInput    = document.getElementById('url-input');
+    const fetchBtn    = document.getElementById('fetch-btn');
+    const tabBar      = document.getElementById('tab-bar');
+    const contentEl   = document.getElementById('content');
+    const emptyState  = document.getElementById('empty-state');
+
+    const settingsBtn = document.getElementById('settings-btn');
+    const drawer      = document.getElementById('settings-drawer');
+    const drawerClose = document.getElementById('drawer-close');
+    const folderPath  = document.getElementById('folder-path');
+    const browseBtn   = document.getElementById('browse-btn');
+
+    const toast      = document.getElementById('toast');
+    const toastIcon  = document.getElementById('toast-icon');
+    const toastTitle = document.getElementById('toast-title');
+    const toastSub   = document.getElementById('toast-sub');
+    const toastClose = document.getElementById('toast-close');
+
+    /* ══════════════════════════════════════════════════════
+       SETTINGS
+    ══════════════════════════════════════════════════════ */
+    settingsBtn.addEventListener('click', () => {
+      drawer.classList.add('open');
+      settingsBtn.classList.add('active');
+    });
+    drawerClose.addEventListener('click', () => {
+      drawer.classList.remove('open');
+      settingsBtn.classList.remove('active');
+    });
+
+    const themeToggle = document.getElementById('theme-toggle');
+
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        themeToggle.checked = true;
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        themeToggle.checked = false;
+      }
+    }
+
+    themeToggle.addEventListener('change', async () => {
+      const theme = themeToggle.checked ? 'light' : 'dark';
+      applyTheme(theme);
+      await fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme }),
+      });
+    });
+
+    async function loadSettings() {
+      try {
+        const res = await fetch('/settings');
+        const data = await res.json();
+        if (data.download_dir) applyDir(data.download_dir);
+        if (data.theme) applyTheme(data.theme);
+      } catch (_) {}
+    }
+    async function persistSettings(dir) {
+      await fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ download_dir: dir }),
+      });
+    }
+    function applyDir(dir) {
+      savedDownloadDir = dir;
+      folderPath.textContent = dir;
+      folderPath.classList.remove('placeholder');
+    }
+    browseBtn.addEventListener('click', async () => {
+      if (window.pywebview) {
+        try {
+          const dir = await window.pywebview.api.pick_folder();
+          if (dir) { applyDir(dir); await persistSettings(dir); }
+        } catch (e) { console.error('pick_folder error', e); }
+        return;
+      }
+      const dir = prompt('Enter download folder path:', savedDownloadDir || '~/Downloads');
+      if (dir && dir.trim()) { applyDir(dir.trim()); await persistSettings(dir.trim()); }
+    });
+    loadSettings();
+
+    /* ══════════════════════════════════════════════════════
+       YOUTUBE TITLE PARSER
+    ══════════════════════════════════════════════════════ */
+    function parseYouTubeTitle(raw) {
+      // Split on " - ", " – ", or " — " (all dash variants, with surrounding spaces)
+      const match = raw.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+      if (match) {
+        return { artist: match[1].trim(), songTitle: match[2].trim() };
+      }
+      // Fallback: use full title for both
+      return { artist: raw.trim(), songTitle: raw.trim() };
+    }
+
+    function cleanAlbumTitle(str) {
+      return str
+        .replace(/\s*\([^)]*\)/g, '')   // remove (...) e.g. "(Extended Mix)"
+        .replace(/\s*\[[^\]]*\]/g, '')  // remove [...] e.g. "[Club Edit]"
+        .replace(/\p{Emoji_Presentation}/gu, '')  // remove visual emojis
+        .replace(/\p{Extended_Pictographic}/gu, '') // remove pictographic symbols
+        .trim();
+    }
+
+    /* ══════════════════════════════════════════════════════
+       FETCH INFO → CREATE TAB
+    ══════════════════════════════════════════════════════ */
+    fetchBtn.addEventListener('click', async () => {
+      const url = urlInput.value.trim();
+      if (!url) { urlInput.focus(); return; }
+
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = 'Fetching…';
+
+      try {
+        const res = await fetch(`/info?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not fetch video info');
+
+        const raw = data.title || url;
+        const parsed = parseYouTubeTitle(raw);
+        const tab = createTab(url, parsed.songTitle);
+        tab.sourceTitle = raw;
+        tab.title  = parsed.songTitle;
+        tab.artist = parsed.artist;
+        tab.album  = cleanAlbumTitle(parsed.songTitle);
+        urlInput.value = '';
+        switchTab(tab.id);
+      } catch (err) {
+        showToast({ status: 'error', error: err.message });
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = 'Convert';
+      }
+    });
+
+    urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchBtn.click(); });
+
+    /* ══════════════════════════════════════════════════════
+       TAB MANAGEMENT
+    ══════════════════════════════════════════════════════ */
+    function createTab(url, title) {
+      const id = ++tabCounter;
+      const tab = {
+        id,
+        url,
+        label: truncateLabel(title),
+        title,
+        artist: title,
+        album: title,
+        sourceTitle: title,
+        genre: 'Music',
+        year: String(new Date().getFullYear()),
+        artworkThumb: '',
+        artworkFull: '',
+        status: 'tags',
+        jobId: null,
+        sse: null,
+        percent: 0,
+        statusMsg: '',
+        speed: '',
+        eta: '',
+        filename: '',
+        error: '',
+        artworkGridVisible: false,
+        artworkGridHtml: '',
+        artworkLoadingVisible: false,
+        artworkEmptyVisible: false,
+        artworkEmptyText: '',
+      };
+      tabs.push(tab);
+      renderTabBar();
+      renderContent();
+      return tab;
+    }
+
+    function truncateLabel(str, max = 24) {
+      return str.length > max ? str.slice(0, max) + '…' : str;
+    }
+
+    function getTab(id) {
+      return tabs.find(t => t.id === id) || null;
+    }
+
+    function closeTab(id) {
+      const tab = getTab(id);
+      if (tab && tab.sse) { tab.sse.close(); tab.sse = null; }
+      tabs = tabs.filter(t => t.id !== id);
+
+      if (activeTabId === id) {
+        activeTabId = tabs.length > 0 ? tabs[tabs.length - 1].id : null;
+      }
+      renderTabBar();
+      renderContent();
+    }
+
+    function switchTab(id) {
+      activeTabId = id;
+      renderTabBar();
+      renderContent();
+    }
+
+    /* ══════════════════════════════════════════════════════
+       RENDER TAB BAR
+    ══════════════════════════════════════════════════════ */
+    function renderTabBar() {
+      if (tabs.length === 0) {
+        tabBar.classList.remove('has-tabs');
+        tabBar.innerHTML = '';
+        return;
+      }
+      tabBar.classList.add('has-tabs');
+      tabBar.innerHTML = tabs.map(tab => {
+        const isActive = tab.id === activeTabId;
+        const dotClass = tab.status === 'downloading' ? 'pending'
+                       : tab.status === 'done'        ? 'done'
+                       : tab.status === 'error'       ? 'error'
+                       : 'idle';
+        return `
+          <div class="tab ${isActive ? 'active' : ''}" data-tab-id="${tab.id}">
+            <div class="tab-status ${dotClass}"></div>
+            <span class="tab-label" title="${escHtml(tab.title)}">${escHtml(tab.label)}</span>
+            <span class="tab-close" data-close-id="${tab.id}" title="Close"><i data-lucide="x" class="icon-sm"></i></span>
+          </div>`;
+      }).join('');
+
+      refreshIcons(tabBar);
+
+      // Keep Python informed so _on_closing never needs evaluate_js (avoids deadlock)
+      const unsavedCount = tabs.filter(t => t.status === 'tags').length;
+      if (window.pywebview) window.pywebview.api.set_unsaved_count(unsavedCount);
+
+      tabBar.querySelectorAll('.tab').forEach(el => {
+        el.addEventListener('click', e => {
+          if (e.target.closest('.tab-close')) return;
+          switchTab(Number(el.dataset.tabId));
+        });
+      });
+      tabBar.querySelectorAll('.tab-close').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          closeTab(Number(el.dataset.closeId));
+        });
+      });
+    }
+
+    /* ══════════════════════════════════════════════════════
+       RENDER CONTENT AREA
+    ══════════════════════════════════════════════════════ */
+    function renderContent() {
+      if (tabs.length === 0 || activeTabId === null) {
+        contentEl.innerHTML = `
+          <div class="empty-state" id="empty-drop-zone">
+            <div class="empty-icon"><i data-lucide="link-2" class="icon-xl"></i></div>
+            <div class="empty-title">Drag a YouTube URL here</div>
+            <div class="empty-sub">or paste a link in the search bar above</div>
+          </div>`;
+        refreshIcons(contentEl);
+        return;
+      }
+
+      const tab = getTab(activeTabId);
+      if (!tab) return;
+
+      if (tab.status === 'tags') {
+        contentEl.innerHTML = buildTagsScreen(tab);
+        refreshIcons(contentEl);
+        bindTagsEvents(tab);
+      } else if (tab.status === 'downloading') {
+        contentEl.innerHTML = buildProgressScreen(tab);
+        refreshIcons(contentEl);
+      } else if (tab.status === 'done') {
+        contentEl.innerHTML = buildDoneScreen(tab);
+        refreshIcons(contentEl);
+        bindDoneEvents(tab);
+      } else if (tab.status === 'error') {
+        contentEl.innerHTML = buildErrorScreen(tab);
+        refreshIcons(contentEl);
+        bindErrorEvents(tab);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       TAG EDITOR SCREEN
+    ══════════════════════════════════════════════════════ */
+    function buildTagsScreen(tab) {
+      const artworkPreviewInner = tab.artworkThumb
+        ? `<img src="${escHtml(tab.artworkThumb)}" alt="artwork" />`
+        : '<i data-lucide="image" class="icon-xl"></i>';
+      const artworkPreviewClass = 'artwork-preview' + (tab.artworkThumb ? ' has-art' : '');
+
+      const clearStyle = tab.artworkThumb ? '' : 'display:none';
+      const gridClass  = 'artwork-grid' + (tab.artworkGridVisible ? ' visible' : '');
+      const loadClass  = 'artwork-grid-loading' + (tab.artworkLoadingVisible ? ' visible' : '');
+      const emptyClass = 'artwork-grid-empty' + (tab.artworkEmptyVisible ? ' visible' : '');
+
+      const genres = ['Music','House','Deep House','Vocal House','Disco House','Tech House','Bass House','Dance','Techno','Trance'];
+      const genreOptions = genres.map(g =>
+        `<option value="${g}"${tab.genre === g ? ' selected' : ''}>${g}</option>`
+      ).join('');
+
+      return `
+        <div class="tab-screen active" id="screen-tags">
+
+          <!-- Source title reference bar -->
+          <div class="source-title-bar">
+            <span class="source-title-label">YouTube Title</span>
+            <input class="source-title-text" id="source-title-text" type="text" readonly value="${escHtml(tab.sourceTitle)}" title="${escHtml(tab.sourceTitle)}" />
+            <button class="source-title-btn" type="button" id="source-copy-btn" title="Copy to clipboard"><i data-lucide="copy" class="icon-sm"></i></button>
+            <button class="source-title-btn" type="button" id="source-image-search-btn" title="Search Google Images"><i data-lucide="search" class="icon-sm"></i></button>
+            <button class="source-title-btn" type="button" id="source-beatport-btn" title="Search Beatport"><i data-lucide="headphones" class="icon-sm"></i></button>
+          </div>
+
+          <div class="tags-layout">
+
+            <!-- Left: artwork -->
+            <div class="tags-col-left">
+              <label>Artwork</label>
+              <div class="${artworkPreviewClass}" id="artwork-preview">${artworkPreviewInner}</div>
+              <div class="artwork-btn-row">
+                <button class="artwork-search-btn" id="artwork-search-btn" type="button">Search Artwork</button>
+                <button class="artwork-clear-btn" id="artwork-clear-btn" type="button" style="${clearStyle}">Remove</button>
+              </div>
+              <div class="${loadClass}" id="artwork-loading">Searching iTunes…</div>
+              <div class="${emptyClass}" id="artwork-empty">${escHtml(tab.artworkEmptyText || 'No results found.')}</div>
+              <div class="${gridClass}" id="artwork-grid">${tab.artworkGridHtml}</div>
+            </div>
+
+            <!-- Right: tags + download -->
+            <div class="tags-col-right">
+              <div class="field">
+                <label for="tag-title">Title</label>
+                <input id="tag-title" type="text" value="${escHtml(tab.title)}" />
+              </div>
+              <div class="field">
+                <label for="tag-artist">Artist</label>
+                <input id="tag-artist" type="text" value="${escHtml(tab.artist)}" />
+              </div>
+              <div class="field">
+                <label for="tag-album">Album</label>
+                <input id="tag-album" type="text" value="${escHtml(tab.album)}" />
+              </div>
+              <div class="field">
+                <label for="tag-year">Year</label>
+                <input id="tag-year" type="text" value="${escHtml(tab.year)}" maxlength="4" />
+              </div>
+              <div class="field">
+                <label for="tag-genre">Genre</label>
+                <select id="tag-genre">${genreOptions}</select>
+              </div>
+              <button class="btn-primary" id="download-btn" type="button" style="margin-top:auto">Download MP3</button>
+            </div>
+
+          </div>
+        </div>`;
+    }
+
+    function bindTagsEvents(tab) {
+      // Save field changes back to tab state
+      const fields = ['tag-title','tag-artist','tag-album','tag-year','tag-genre'];
+      const keys   = ['title','artist','album','year','genre'];
+      fields.forEach((fid, i) => {
+        const el = document.getElementById(fid);
+        if (!el) return;
+        el.addEventListener('input', () => { tab[keys[i]] = el.value; });
+        el.addEventListener('change', () => { tab[keys[i]] = el.value; });
+      });
+
+      // Re-bind grid item clicks (grid HTML was stored as string)
+      document.querySelectorAll('.artwork-grid-item').forEach(item => {
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.artwork-grid-item').forEach(el => el.classList.remove('selected'));
+          item.classList.add('selected');
+          tab.artworkThumb = item.dataset.thumb;
+          tab.artworkFull  = item.dataset.full;
+          updateArtworkPreview(tab);
+        });
+        if (item.dataset.full === tab.artworkFull && tab.artworkFull) {
+          item.classList.add('selected');
+        }
+      });
+
+      // Artwork search
+      document.getElementById('artwork-search-btn').addEventListener('click', async () => {
+        const q = [tab.artist.trim(), tab.title.trim()].filter(Boolean).join(' ');
+        if (!q) return;
+
+        tab.artworkLoadingVisible = true;
+        tab.artworkGridVisible = false;
+        tab.artworkEmptyVisible = false;
+        tab.artworkGridHtml = '';
+
+        const loadEl  = document.getElementById('artwork-loading');
+        const gridEl  = document.getElementById('artwork-grid');
+        const emptyEl = document.getElementById('artwork-empty');
+        const searchBtn = document.getElementById('artwork-search-btn');
+
+        if (loadEl) loadEl.classList.add('visible');
+        if (gridEl) gridEl.classList.remove('visible');
+        if (emptyEl) emptyEl.classList.remove('visible');
+        if (gridEl) gridEl.innerHTML = '';
+        if (searchBtn) searchBtn.disabled = true;
+
+        try {
+          const res = await fetch(`/artwork/search?q=${encodeURIComponent(q)}`);
+          const data = await res.json();
+          const results = data.results || [];
+
+          tab.artworkLoadingVisible = false;
+          if (loadEl) loadEl.classList.remove('visible');
+
+          if (results.length === 0) {
+            tab.artworkEmptyVisible = true;
+            tab.artworkEmptyText = 'No results found. Try different search terms.';
+            if (emptyEl) { emptyEl.textContent = tab.artworkEmptyText; emptyEl.classList.add('visible'); }
+            return;
+          }
+
+          // Build grid items
+          const items = results.map(r => {
+            const th = escHtml(r.thumb);
+            const fu = escHtml(r.full);
+            const ti = escHtml(r.title);
+            const selected = (r.full === tab.artworkFull) ? ' selected' : '';
+            return `<div class="artwork-grid-item${selected}" data-thumb="${th}" data-full="${fu}" title="${escHtml(r.artist)} — ${escHtml(r.album)}"><img src="${th}" alt="${ti}" loading="lazy" /></div>`;
+          }).join('');
+
+          tab.artworkGridHtml = items;
+          tab.artworkGridVisible = true;
+
+          if (gridEl) { gridEl.innerHTML = items; gridEl.classList.add('visible'); }
+
+          // Bind clicks on new items
+          document.querySelectorAll('.artwork-grid-item').forEach(item => {
+            item.addEventListener('click', () => {
+              document.querySelectorAll('.artwork-grid-item').forEach(el => el.classList.remove('selected'));
+              item.classList.add('selected');
+              tab.artworkThumb = item.dataset.thumb;
+              tab.artworkFull  = item.dataset.full;
+              updateArtworkPreview(tab);
+            });
+          });
+
+        } catch (err) {
+          tab.artworkLoadingVisible = false;
+          tab.artworkEmptyVisible = true;
+          tab.artworkEmptyText = 'Search failed. Check your connection.';
+          if (loadEl) loadEl.classList.remove('visible');
+          if (emptyEl) { emptyEl.textContent = tab.artworkEmptyText; emptyEl.classList.add('visible'); }
+        } finally {
+          if (searchBtn) searchBtn.disabled = false;
+        }
+      });
+
+      // Clear artwork
+      document.getElementById('artwork-clear-btn').addEventListener('click', () => {
+        tab.artworkThumb = '';
+        tab.artworkFull  = '';
+        tab.artworkGridVisible = false;
+        tab.artworkGridHtml = '';
+        tab.artworkEmptyVisible = false;
+
+        const preview = document.getElementById('artwork-preview');
+        const gridEl  = document.getElementById('artwork-grid');
+        const emptyEl = document.getElementById('artwork-empty');
+        const clearBtn = document.getElementById('artwork-clear-btn');
+
+        if (preview) { preview.innerHTML = '<i data-lucide="image" class="icon-xl"></i>'; preview.classList.remove('has-art'); refreshIcons(preview); }
+        if (gridEl)  { gridEl.classList.remove('visible'); gridEl.innerHTML = ''; }
+        if (emptyEl) emptyEl.classList.remove('visible');
+        if (clearBtn) clearBtn.style.display = 'none';
+      });
+
+      // Source title — copy to clipboard
+      document.getElementById('source-copy-btn').addEventListener('click', () => {
+        navigator.clipboard.writeText(tab.sourceTitle).then(() => {
+          const btn = document.getElementById('source-copy-btn');
+          if (btn) {
+            btn.innerHTML = '<i data-lucide="check" class="icon-sm"></i>';
+            refreshIcons(btn);
+            setTimeout(() => {
+              btn.innerHTML = '<i data-lucide="copy" class="icon-sm"></i>';
+              refreshIcons(btn);
+            }, 1500);
+          }
+        });
+      });
+
+      // Source title — open Google Images in system browser
+      document.getElementById('source-image-search-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const q = encodeURIComponent(tab.sourceTitle);
+        const url = `https://www.google.com/search?q=${q}&tbm=isch`;
+        if (window.pywebview) {
+          window.pywebview.api.open_url(url);
+        } else {
+          window.open(url, '_blank');
+        }
+      });
+
+      // Source title — search Beatport
+      document.getElementById('source-beatport-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const q = encodeURIComponent(tab.sourceTitle);
+        const url = `https://www.beatport.com/search?q=${q}`;
+        if (window.pywebview) {
+          window.pywebview.api.open_url(url);
+        } else {
+          window.open(url, '_blank');
+        }
+      });
+
+      // Artwork drag-and-drop
+      const artworkDropZone = document.getElementById('artwork-preview');
+      if (artworkDropZone) {
+        artworkDropZone.addEventListener('dragenter', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          artworkDropZone.classList.add('drag-over');
+        });
+        artworkDropZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = 'copy';
+        });
+        artworkDropZone.addEventListener('dragleave', (e) => {
+          e.stopPropagation();
+          artworkDropZone.classList.remove('drag-over');
+        });
+        artworkDropZone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          artworkDropZone.classList.remove('drag-over');
+
+          // Case 1: actual image file (dragged from Finder or desktop)
+          const file = Array.from(e.dataTransfer.files || []).find(f => f.type.startsWith('image/'));
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              const dataUrl = ev.target.result;
+              tab.artworkThumb = dataUrl;
+              tab.artworkFull  = dataUrl;
+              updateArtworkPreview(tab);
+            };
+            reader.readAsDataURL(file);
+            return;
+          }
+
+          // Case 2: image URL dragged from Safari/Chrome (link or address bar image)
+          const uri = (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || '').trim().split('\n')[0].trim();
+          if (uri && uri.startsWith('http')) {
+            tab.artworkThumb = uri;
+            tab.artworkFull  = uri;
+            updateArtworkPreview(tab);
+          }
+        });
+      }
+
+      // Download
+      document.getElementById('download-btn').addEventListener('click', () => startDownload(tab));
+    }
+
+    function updateArtworkPreview(tab) {
+      const preview = document.getElementById('artwork-preview');
+      const clearBtn = document.getElementById('artwork-clear-btn');
+      if (!preview) return;
+      if (tab.artworkThumb) {
+        preview.innerHTML = `<img src="${escHtml(tab.artworkThumb)}" alt="artwork" />`;
+        preview.classList.add('has-art');
+        if (clearBtn) clearBtn.style.display = '';
+      } else {
+        preview.innerHTML = '<i data-lucide="image" class="icon-xl"></i>';
+        preview.classList.remove('has-art');
+        refreshIcons(preview);
+        if (clearBtn) clearBtn.style.display = 'none';
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PROGRESS SCREEN
+    ══════════════════════════════════════════════════════ */
+    function buildProgressScreen(tab) {
+      const pct = tab.percent || 0;
+      const isIndeterminate = (pct === 0);
+      const barStyle = isIndeterminate ? '' : `style="width:${pct}%"`;
+      const barClass = 'bar' + (isIndeterminate ? ' indeterminate' : '');
+      return `
+        <div class="tab-screen active" id="screen-progress">
+          <div class="status-label">
+            <span id="status-text">${escHtml(tab.statusMsg || 'Starting…')}</span>
+            <span id="pct-text">${pct > 0 ? pct.toFixed(1) + '%' : ''}</span>
+          </div>
+          <div class="bar-wrap"><div class="${barClass}" id="bar" ${barStyle}></div></div>
+          <div class="meta">
+            <span id="speed-text">${escHtml(tab.speed || '')}</span>
+            <span id="eta-text">${escHtml(tab.eta || '')}</span>
+          </div>
+        </div>`;
+    }
+
+    function updateProgressScreen(tab) {
+      // Called by SSE handler; only updates DOM if this tab is active
+      if (tab.id !== activeTabId) return;
+      const statusEl = document.getElementById('status-text');
+      const pctEl    = document.getElementById('pct-text');
+      const barEl    = document.getElementById('bar');
+      const speedEl  = document.getElementById('speed-text');
+      const etaEl    = document.getElementById('eta-text');
+      if (!statusEl) return; // not visible
+
+      if (statusEl) statusEl.textContent = tab.statusMsg || '';
+      if (pctEl)    pctEl.textContent = tab.percent > 0 ? tab.percent.toFixed(1) + '%' : '';
+      if (barEl) {
+        if (tab.percent > 0) {
+          barEl.classList.remove('indeterminate');
+          barEl.style.width = tab.percent + '%';
+        } else {
+          barEl.classList.add('indeterminate');
+        }
+      }
+      if (speedEl) speedEl.textContent = tab.speed || '';
+      if (etaEl)   etaEl.textContent = tab.eta || '';
+    }
+
+    /* ══════════════════════════════════════════════════════
+       DONE / ERROR SCREENS
+    ══════════════════════════════════════════════════════ */
+    function buildDoneScreen(tab) {
+      return `
+        <div class="tab-screen active" id="screen-done">
+          <div style="text-align:center;padding:28px 0 20px">
+            <div style="margin-bottom:12px;color:var(--success)"><i data-lucide="circle-check" class="icon-xl"></i></div>
+            <div style="font-weight:600;font-size:.95rem;margin-bottom:6px;word-break:break-all">${escHtml(tab.filename)}</div>
+            <div style="font-size:.8rem;color:var(--muted)">Saved to ${escHtml(savedDownloadDir || '~/Downloads')}</div>
+          </div>
+          <button class="btn-primary" id="done-close-btn" type="button">Close Tab</button>
+        </div>`;
+    }
+
+    function bindDoneEvents(tab) {
+      document.getElementById('done-close-btn').addEventListener('click', () => closeTab(tab.id));
+    }
+
+    function buildErrorScreen(tab) {
+      return `
+        <div class="tab-screen active" id="screen-error">
+          <div style="text-align:center;padding:24px 0 16px">
+            <div style="margin-bottom:10px;color:var(--error)"><i data-lucide="triangle-alert" class="icon-xl"></i></div>
+            <div style="font-weight:600;font-size:.9rem;color:var(--error);margin-bottom:6px">${escHtml(tab.error || 'Download failed')}</div>
+          </div>
+          <button class="btn-primary" id="error-retry-btn" type="button">Try Again</button>
+          <button class="artwork-clear-btn" id="error-close-btn" type="button" style="width:100%;margin-top:8px;text-align:center">Close Tab</button>
+        </div>`;
+    }
+
+    function bindErrorEvents(tab) {
+      document.getElementById('error-retry-btn').addEventListener('click', () => {
+        tab.status = 'tags';
+        tab.error = '';
+        renderTabBar();
+        renderContent();
+      });
+      document.getElementById('error-close-btn').addEventListener('click', () => closeTab(tab.id));
+    }
+
+    /* ══════════════════════════════════════════════════════
+       DOWNLOAD
+    ══════════════════════════════════════════════════════ */
+    async function startDownload(tab) {
+      const downloadBtn = document.getElementById('download-btn');
+      if (downloadBtn) { downloadBtn.disabled = true; downloadBtn.textContent = 'Starting…'; }
+
+      tab.status = 'downloading';
+      tab.percent = 0;
+      tab.statusMsg = 'Starting…';
+      tab.speed = '';
+      tab.eta = '';
+      renderTabBar();
+      renderContent();
+
+      const tags = {
+        title:       tab.title.trim(),
+        artist:      tab.artist.trim(),
+        album:       tab.album.trim(),
+        genre:       tab.genre,
+        date:        tab.year || undefined,
+        artwork_url: tab.artworkFull || undefined,
+      };
+
+      let jobId;
+      try {
+        const res = await fetch('/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: tab.url, output_dir: savedDownloadDir, tags }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error');
+        jobId = data.job_id;
+        tab.jobId = jobId;
+      } catch (err) {
+        tab.status = 'error';
+        tab.error = err.message;
+        renderTabBar();
+        renderContent();
+        return;
+      }
+
+      // Start SSE
+      const sse = new EventSource(`/status/${jobId}`);
+      tab.sse = sse;
+
+      sse.onmessage = (ev) => {
+        const job = JSON.parse(ev.data);
+        job.job_id = jobId;
+
+        if (job.status === 'not_found') {
+          sse.close(); tab.sse = null;
+          tab.status = 'error';
+          tab.error = 'Job not found on server.';
+          renderTabBar();
+          if (tab.id === activeTabId) renderContent();
+          return;
+        }
+        if (job.status === 'downloading') {
+          if (job.percent != null) tab.percent = job.percent;
+          tab.statusMsg = 'Downloading…';
+          tab.speed = fmtSpeed(job.speed);
+          tab.eta   = fmtEta(job.eta);
+          updateProgressScreen(tab);
+        } else if (job.status === 'processing') {
+          tab.percent = 100;
+          tab.statusMsg = 'Converting to MP3…';
+          tab.speed = ''; tab.eta = '';
+          updateProgressScreen(tab);
+        } else if (job.status === 'tagging') {
+          tab.statusMsg = 'Applying tags…';
+          updateProgressScreen(tab);
+        } else if (job.status === 'starting') {
+          tab.statusMsg = 'Starting…';
+          updateProgressScreen(tab);
+        }
+
+        if (job.status === 'done' || job.status === 'error') {
+          sse.close(); tab.sse = null;
+          if (job.status === 'done') {
+            tab.status = 'done';
+            tab.filename = job.filename || '';
+            if (jobId) fetch(`/reveal/${jobId}`);
+            showToast({ status: 'done', filename: tab.filename });
+          } else {
+            tab.status = 'error';
+            tab.error = job.error || 'Download failed';
+            showToast({ status: 'error', error: tab.error });
+          }
+          renderTabBar();
+          if (tab.id === activeTabId) renderContent();
+        }
+      };
+
+      sse.onerror = () => {
+        sse.close(); tab.sse = null;
+        tab.status = 'error';
+        tab.error = 'Lost connection to server.';
+        renderTabBar();
+        if (tab.id === activeTabId) renderContent();
+      };
+    }
+
+    /* ══════════════════════════════════════════════════════
+       HELPERS
+    ══════════════════════════════════════════════════════ */
+    function fmtSpeed(bps) {
+      if (!bps) return '';
+      return bps >= 1_048_576
+        ? `${(bps / 1_048_576).toFixed(1)} MB/s`
+        : `${(bps / 1024).toFixed(0)} KB/s`;
+    }
+    function fmtEta(s) {
+      if (!s) return '';
+      return s < 60 ? `ETA ${s}s` : `ETA ${Math.floor(s/60)}m ${s%60}s`;
+    }
+    function escHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function refreshIcons(el) {
+      if (window.lucide) lucide.createIcons(el ? { nodes: [el] } : undefined);
+    }
+
+    window.__hasUnsavedTabs = function() {
+      return tabs.some(t => t.status === 'tags');
+    };
+
+    /* ══════════════════════════════════════════════════════
+       TOAST
+    ══════════════════════════════════════════════════════ */
+    function showToast(job) {
+      clearTimeout(toastTimer);
+      toast.classList.remove('visible', 'error');
+      if (job.status === 'error') {
+        toast.classList.add('error');
+        toastIcon.innerHTML = '<i data-lucide="triangle-alert" class="icon-md"></i>';
+        toastTitle.textContent = job.error || 'Download failed';
+        toastSub.textContent = '';
+      } else {
+        toastIcon.innerHTML = '<i data-lucide="check" class="icon-md"></i>';
+        toastTitle.textContent = job.filename;
+        toastSub.textContent = `Saved to ${savedDownloadDir || '~/Downloads'}`;
+      }
+      refreshIcons(toast);
+      requestAnimationFrame(() => toast.classList.add('visible'));
+      toastTimer = setTimeout(dismissToast, 8000);
+    }
+    function dismissToast() {
+      clearTimeout(toastTimer);
+      toast.classList.remove('visible');
+    }
+    toastClose.addEventListener('click', dismissToast);
+
+    // Init Lucide icons for all static elements on load
+    document.addEventListener('DOMContentLoaded', () => refreshIcons());
+    // Fallback if DOMContentLoaded already fired
+    if (document.readyState !== 'loading') refreshIcons();
+
+    /* ══════════════════════════════════════════════════════
+       DRAG AND DROP
+    ══════════════════════════════════════════════════════ */
+    const dropOverlay = document.getElementById('drop-overlay');
+    let dragDepth = 0; // track enter/leave pairs across child elements
+
+    function setDragActive(on) {
+      dropOverlay.classList.toggle('active', on);
+      const zone = document.getElementById('empty-drop-zone');
+      if (zone) zone.classList.toggle('drag-active', on);
+    }
+
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragDepth++;
+      if (dragDepth === 1) setDragActive(true);
+    });
+
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+
+    document.addEventListener('dragleave', () => {
+      dragDepth--;
+      if (dragDepth <= 0) { dragDepth = 0; setDragActive(false); }
+    });
+
+    document.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      setDragActive(false);
+
+      // Try URI list first (dragging address bar / links), fall back to plain text
+      const url = (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || '').trim().split('\n')[0].trim();
+      if (!url || !url.startsWith('http')) return;
+
+      // Reuse the same fetch flow as the URL bar
+      urlInput.value = url;
+      fetchBtn.click();
+    });
+  </script>
+</body>
+</html>

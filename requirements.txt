@@ -1,0 +1,8 @@
+yt-dlp>=2024.1.0
+flask>=3.0.0
+imageio-ffmpeg>=0.5.1
+pywebview>=5.0
+mutagen>=1.47.0
+musicbrainzngs>=0.7.1
+pyinstaller>=6.0.0
+pillow>=10.0.0
