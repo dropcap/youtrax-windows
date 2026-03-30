@@ -7,7 +7,8 @@ venv/
 dist/
 build/
 *.spec.bak
-youtrax.ico
+# youtrax.ico is committed directly — generated on macOS and checked in
+# youtrax.ico
 *.egg-info/
 .DS_Store
 Thumbs.db
