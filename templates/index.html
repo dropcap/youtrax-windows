@@ -27,14 +27,16 @@
       --success:  #4caf82;
       --error:    #e05c5c;
       --radius:   12px;
+      --input-bg: var(--bg);
     }
 
     [data-theme="light"] {
-      --bg:       #d8d8e0;
-      --surface:  #e4e4ec;
-      --border:   #bebece;
+      --bg:       #f0f0f6;
+      --surface:  #e8e8f0;
+      --border:   #d0d0da;
       --text:     #1a1a2e;
       --muted:    #606080;
+      --input-bg: #f5f5fa;
     }
 
     html, body {
@@ -97,7 +99,7 @@
       padding: 10px 13px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: var(--bg);
+      background: var(--input-bg);
       color: var(--text);
       font-size: .92rem;
       outline: none;
@@ -130,7 +132,9 @@
       flex-direction: row;
       border-bottom: 1px solid var(--border);
       overflow-x: auto;
+      overflow-y: visible;
       scrollbar-width: none;
+      flex-shrink: 0;
     }
     .tab-bar::-webkit-scrollbar { display: none; }
     .tab-bar.has-tabs { display: flex; }
@@ -226,7 +230,7 @@
       padding: 10px 13px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: var(--bg);
+      background: var(--input-bg);
       color: var(--text);
       font-size: .92rem;
       outline: none;
@@ -240,7 +244,7 @@
       padding: 10px 13px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: var(--bg);
+      background: var(--input-bg);
       color: var(--text);
       font-size: .92rem;
       outline: none;
@@ -256,7 +260,8 @@
 
     .btn-primary {
       width: 100%;
-      padding: 11px;
+      height: 42px;
+      padding: 0 11px;
       border-radius: 8px;
       border: none;
       background: var(--accent);
@@ -269,6 +274,8 @@
     }
     .btn-primary:hover:not(:disabled) { background: var(--accent-h); }
     .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    #download-btn { background: #2a9d5c; }
+    #download-btn:hover:not(:disabled) { background: #23874e; }
 
     /* ── Settings button ── */
     .settings-btn {
@@ -277,11 +284,14 @@
       color: var(--muted);
       font-size: 1.05rem;
       cursor: pointer;
-      padding: 4px 6px;
+      padding: 6px;
       width: auto;
       border-radius: 6px;
       line-height: 1;
       transition: color .15s, background .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .settings-btn:hover { color: var(--text); background: var(--border); }
     .settings-btn.active { color: var(--accent); background: rgba(108,99,255,.12); }
@@ -292,7 +302,7 @@
       align-items: center;
       gap: 8px;
       margin-bottom: 18px;
-      background: var(--bg);
+      background: var(--input-bg);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px 12px;
@@ -323,14 +333,48 @@
       border: none;
       color: var(--muted);
       cursor: pointer;
-      padding: 4px 6px;
-      width: auto;
-      border-radius: 5px;
+      padding: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
       font-size: .85rem;
       line-height: 1;
       transition: color .15s, background .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .source-title-btn:hover { color: var(--text); background: var(--border); }
+    .source-title-btn + .source-title-btn { margin-left: -4px; }
+    .source-title-btn:hover { color: var(--accent); background: rgba(108,99,255,.12); }
+
+    /* ── Title field with append buttons ── */
+    .title-input-wrap {
+      position: relative;
+    }
+    .title-input-wrap input { width: 100%; padding-right: 62px; }
+    .title-append-btns {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      gap: 2px;
+    }
+    .title-append-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 5px 0;
+      width: 32px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color .15s, background .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .title-append-btn:hover { color: var(--accent); background: rgba(108,99,255,.12); }
 
     /* ── Tags two-column layout ── */
     .tags-layout {
@@ -339,7 +383,7 @@
       align-items: flex-start;
     }
     .tags-col-left {
-      flex: 0 0 42%;
+      flex: 0 0 31.5%;
       min-width: 0;
     }
     .tags-col-right {
@@ -363,8 +407,31 @@
       opacity: .5;
       overflow: hidden;
       margin-bottom: 10px;
+      position: relative;
     }
+    .artwork-remove-btn {
+      display: none;
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,.55);
+      color: #fff;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: background .15s;
+      z-index: 10;
+    }
+    .artwork-remove-btn:hover { background: rgba(0,0,0,.8); }
+    .artwork-preview.has-art .artwork-remove-btn { display: flex; }
     .artwork-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .artwork-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .artwork-placeholder span { font-size: 0.75rem; opacity: .7; }
     .artwork-preview.has-art { border-style: solid; border-color: var(--accent); opacity: 1; }
     .artwork-preview.drag-over {
       border-style: solid;
@@ -377,15 +444,15 @@
       flex: 1;
       padding: 8px 13px;
       font-size: .85rem;
-      font-weight: 600;
+      font-weight: 500;
       border-radius: 8px;
-      border: none;
-      background: var(--accent);
-      color: #fff;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
       cursor: pointer;
-      transition: background .15s, opacity .15s;
+      transition: border-color .15s, color .15s, opacity .15s;
     }
-    .artwork-search-btn:hover:not(:disabled) { background: var(--accent-h); }
+    .artwork-search-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
     .artwork-search-btn:disabled { opacity: .5; cursor: not-allowed; }
     .artwork-clear-btn {
       background: transparent;
@@ -504,8 +571,9 @@
       border: none; transition: background .15s;
     }
     .browse-btn:hover:not(:disabled) { background: #3a3a52; }
-    [data-theme="light"] .browse-btn { background: var(--border); color: var(--text); }
+    [data-theme="light"] .browse-btn { background: #d0d0da; color: var(--text); }
     [data-theme="light"] .browse-btn:hover:not(:disabled) { background: #c8c8dc; }
+    [data-theme="light"] .source-title-bar { background: var(--input-bg); }
     .settings-hint { font-size: .73rem; color: var(--muted); margin-top: 7px; }
 
     /* ── Theme toggle ── */
@@ -629,7 +697,7 @@
           </div>
           <div>
             <h1>YouTrax</h1>
-            <div class="subtitle">320 kbps MP3 converter · powered by dropcap</div>
+            <div class="subtitle">320 kbps MP3 downloader - powered by dropcap</div>
           </div>
         </div>
         <button class="settings-btn" id="settings-btn" type="button" title="Settings"><i data-lucide="settings" class="icon-md"></i></button>
@@ -680,6 +748,16 @@
           <span class="toggle-track"></span>
         </label>
       </div>
+      <div class="field theme-row">
+        <span class="theme-label">
+          <i data-lucide="music" class="icon-md"></i> Platinum Notes
+        </span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="platinum-toggle" />
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-hint">Auto-open downloads in Platinum Notes for audio enhancement.</div>
     </div>
 
   </div>
@@ -732,6 +810,8 @@
     const folderPath  = document.getElementById('folder-path');
     const browseBtn   = document.getElementById('browse-btn');
 
+    const platinumToggle = document.getElementById('platinum-toggle');
+
     const toast      = document.getElementById('toast');
     const toastIcon  = document.getElementById('toast-icon');
     const toastTitle = document.getElementById('toast-title');
@@ -772,12 +852,21 @@
       });
     });
 
+    platinumToggle.addEventListener('change', async () => {
+      await fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platinum_notes: platinumToggle.checked }),
+      });
+    });
+
     async function loadSettings() {
       try {
         const res = await fetch('/settings');
         const data = await res.json();
         if (data.download_dir) applyDir(data.download_dir);
         if (data.theme) applyTheme(data.theme);
+        platinumToggle.checked = !!data.platinum_notes;
       } catch (_) {}
     }
     async function persistSettings(dir) {
@@ -875,6 +964,7 @@
         album: title,
         sourceTitle: title,
         genre: 'Music',
+        comments: '',
         year: String(new Date().getFullYear()),
         artworkThumb: '',
         artworkFull: '',
@@ -1010,19 +1100,21 @@
     ══════════════════════════════════════════════════════ */
     function buildTagsScreen(tab) {
       const artworkPreviewInner = tab.artworkThumb
-        ? `<img src="${escHtml(tab.artworkThumb)}" alt="artwork" />`
-        : '<i data-lucide="image" class="icon-xl"></i>';
+        ? `<img src="${escHtml(tab.artworkThumb)}" alt="artwork" /><button class="artwork-remove-btn" id="artwork-clear-btn" type="button" title="Remove artwork"><i data-lucide="x" class="icon-sm"></i></button>`
+        : '<div class="artwork-placeholder"><i data-lucide="image" class="icon-xl"></i><span>Drag an image here</span></div><button class="artwork-remove-btn" id="artwork-clear-btn" type="button" title="Remove artwork"><i data-lucide="x" class="icon-sm"></i></button>';
       const artworkPreviewClass = 'artwork-preview' + (tab.artworkThumb ? ' has-art' : '');
 
-      const clearStyle = tab.artworkThumb ? '' : 'display:none';
       const gridClass  = 'artwork-grid' + (tab.artworkGridVisible ? ' visible' : '');
       const loadClass  = 'artwork-grid-loading' + (tab.artworkLoadingVisible ? ' visible' : '');
       const emptyClass = 'artwork-grid-empty' + (tab.artworkEmptyVisible ? ' visible' : '');
 
-      const genres = ['Music','House','Deep House','Vocal House','Disco House','Tech House','Bass House','Dance','Techno','Trance'];
+      const genres = ['Music','House','Tech House','Bass House','Acid House','Afro House','Dance','Deep House','Disco House','Funky House','Indie Dance','Melodic House','Mainroom','Minimal','Progressive House','Techno','Trance','Vocal House','Custom'];
+      const isCustomGenre = !genres.slice(0,-1).includes(tab.genre);
+      const genreSelectVal = isCustomGenre ? 'Custom' : tab.genre;
       const genreOptions = genres.map(g =>
-        `<option value="${g}"${tab.genre === g ? ' selected' : ''}>${g}</option>`
+        `<option value="${g}"${genreSelectVal === g ? ' selected' : ''}>${g}</option>`
       ).join('');
+      const genreInputStyle = isCustomGenre ? 'flex:2;min-width:0' : 'flex:2;min-width:0;display:none';
 
       return `
         <div class="tab-screen active" id="screen-tags">
@@ -1030,7 +1122,7 @@
           <!-- Source title reference bar -->
           <div class="source-title-bar">
             <span class="source-title-label">YouTube Title</span>
-            <input class="source-title-text" id="source-title-text" type="text" readonly value="${escHtml(tab.sourceTitle)}" title="${escHtml(tab.sourceTitle)}" />
+            <input class="source-title-text" id="source-title-text" type="text" value="${escHtml(tab.sourceTitle)}" title="${escHtml(tab.sourceTitle)}" />
             <button class="source-title-btn" type="button" id="source-copy-btn" title="Copy to clipboard"><i data-lucide="copy" class="icon-sm"></i></button>
             <button class="source-title-btn" type="button" id="source-image-search-btn" title="Search Google Images"><i data-lucide="search" class="icon-sm"></i></button>
             <button class="source-title-btn" type="button" id="source-beatport-btn" title="Search Beatport"><i data-lucide="headphones" class="icon-sm"></i></button>
@@ -1040,11 +1132,10 @@
 
             <!-- Left: artwork -->
             <div class="tags-col-left">
-              <label>Artwork</label>
+              <label>Album Artwork</label>
               <div class="${artworkPreviewClass}" id="artwork-preview">${artworkPreviewInner}</div>
               <div class="artwork-btn-row">
-                <button class="artwork-search-btn" id="artwork-search-btn" type="button">Search Artwork</button>
-                <button class="artwork-clear-btn" id="artwork-clear-btn" type="button" style="${clearStyle}">Remove</button>
+                <button class="artwork-search-btn" id="artwork-search-btn" type="button">Artwork Search</button>
               </div>
               <div class="${loadClass}" id="artwork-loading">Searching iTunes…</div>
               <div class="${emptyClass}" id="artwork-empty">${escHtml(tab.artworkEmptyText || 'No results found.')}</div>
@@ -1055,7 +1146,13 @@
             <div class="tags-col-right">
               <div class="field">
                 <label for="tag-title">Title</label>
-                <input id="tag-title" type="text" value="${escHtml(tab.title)}" />
+                <div class="title-input-wrap">
+                  <input id="tag-title" type="text" value="${escHtml(tab.title)}" />
+                  <div class="title-append-btns">
+                    <button class="title-append-btn" type="button" id="title-append-original" title="Append (Original Mix)"><svg class="icon-sm" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:auto"><line x1="2" y1="9" x2="2" y2="15"/><line x1="7" y1="4" x2="7" y2="20"/><line x1="12" y1="7" x2="12" y2="17"/><line x1="17" y1="5" x2="17" y2="19"/></svg></button>
+                    <button class="title-append-btn" type="button" id="title-append-extended" title="Append (Extended Mix)"><svg class="icon-sm" viewBox="0 0 37 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:auto"><line x1="2" y1="10" x2="2" y2="16"/><line x1="7" y1="6" x2="7" y2="20"/><line x1="12" y1="4" x2="12" y2="21"/><line x1="17" y1="8" x2="17" y2="18"/><line x1="22" y1="3" x2="22" y2="21"/><line x1="27" y1="6" x2="27" y2="18"/><line x1="32" y1="5" x2="32" y2="17"/><line x1="37" y1="9" x2="37" y2="15"/></svg></button>
+                  </div>
+                </div>
               </div>
               <div class="field">
                 <label for="tag-artist">Artist</label>
@@ -1071,7 +1168,14 @@
               </div>
               <div class="field">
                 <label for="tag-genre">Genre</label>
-                <select id="tag-genre">${genreOptions}</select>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <select id="tag-genre" style="flex:1;min-width:0">${genreOptions}</select>
+                  <input id="tag-genre-input" type="text" value="${escHtml(isCustomGenre ? tab.genre : '')}" placeholder="Custom genre…" style="${genreInputStyle}" />
+                </div>
+              </div>
+              <div class="field" style="margin-bottom:24px">
+                <label for="tag-comments">Comments</label>
+                <input id="tag-comments" type="text" value="${escHtml(tab.comments)}" placeholder="Optional" />
               </div>
               <button class="btn-primary" id="download-btn" type="button" style="margin-top:auto">Download MP3</button>
             </div>
@@ -1080,16 +1184,70 @@
         </div>`;
     }
 
+    function _artworkClearHandler(tab) {
+      return () => {
+        tab.artworkThumb = '';
+        tab.artworkFull  = '';
+        tab.artworkGridVisible = false;
+        tab.artworkGridHtml = '';
+        tab.artworkEmptyVisible = false;
+        updateArtworkPreview(tab);
+        const gridEl  = document.getElementById('artwork-grid');
+        const emptyEl = document.getElementById('artwork-empty');
+        if (gridEl)  { gridEl.classList.remove('visible'); gridEl.innerHTML = ''; }
+        if (emptyEl) emptyEl.classList.remove('visible');
+      };
+    }
+
+    function appendToTitle(suffix) {
+      const input = document.getElementById('tag-title');
+      if (!input) return;
+      const current = input.value.trimEnd();
+      input.value = current + ' ' + suffix;
+      input.dispatchEvent(new Event('input'));
+    }
+
     function bindTagsEvents(tab) {
       // Save field changes back to tab state
-      const fields = ['tag-title','tag-artist','tag-album','tag-year','tag-genre'];
-      const keys   = ['title','artist','album','year','genre'];
+      const fields = ['tag-title','tag-artist','tag-album','tag-year'];
+      const keys   = ['title','artist','album','year'];
       fields.forEach((fid, i) => {
         const el = document.getElementById(fid);
         if (!el) return;
         el.addEventListener('input', () => { tab[keys[i]] = el.value; });
         el.addEventListener('change', () => { tab[keys[i]] = el.value; });
       });
+
+      // Title append buttons
+      const origBtn = document.getElementById('title-append-original');
+      const extBtn  = document.getElementById('title-append-extended');
+      if (origBtn) origBtn.addEventListener('click', () => appendToTitle('(Original Mix)'));
+      if (extBtn)  extBtn.addEventListener('click', () => appendToTitle('(Extended Mix)'));
+
+      // Genre: show custom input only when "Custom" is selected
+      const genreSelect = document.getElementById('tag-genre');
+      const genreInput  = document.getElementById('tag-genre-input');
+      if (genreSelect && genreInput) {
+        genreSelect.addEventListener('change', () => {
+          if (genreSelect.value === 'Custom') {
+            genreInput.style.display = '';
+            genreInput.value = '';
+            tab.genre = '';
+            genreInput.focus();
+          } else {
+            genreInput.style.display = 'none';
+            genreInput.value = '';
+            tab.genre = genreSelect.value;
+          }
+        });
+        genreInput.addEventListener('input', () => { tab.genre = genreInput.value; });
+      }
+
+      // Comments
+      const commentsInput = document.getElementById('tag-comments');
+      if (commentsInput) {
+        commentsInput.addEventListener('input', () => { tab.comments = commentsInput.value; });
+      }
 
       // Re-bind grid item clicks (grid HTML was stored as string)
       document.querySelectorAll('.artwork-grid-item').forEach(item => {
@@ -1178,27 +1336,13 @@
       });
 
       // Clear artwork
-      document.getElementById('artwork-clear-btn').addEventListener('click', () => {
-        tab.artworkThumb = '';
-        tab.artworkFull  = '';
-        tab.artworkGridVisible = false;
-        tab.artworkGridHtml = '';
-        tab.artworkEmptyVisible = false;
-
-        const preview = document.getElementById('artwork-preview');
-        const gridEl  = document.getElementById('artwork-grid');
-        const emptyEl = document.getElementById('artwork-empty');
-        const clearBtn = document.getElementById('artwork-clear-btn');
-
-        if (preview) { preview.innerHTML = '<i data-lucide="image" class="icon-xl"></i>'; preview.classList.remove('has-art'); refreshIcons(preview); }
-        if (gridEl)  { gridEl.classList.remove('visible'); gridEl.innerHTML = ''; }
-        if (emptyEl) emptyEl.classList.remove('visible');
-        if (clearBtn) clearBtn.style.display = 'none';
-      });
+      const clearBtn = document.getElementById('artwork-clear-btn');
+      if (clearBtn) clearBtn.addEventListener('click', _artworkClearHandler(tab));
 
       // Source title — copy to clipboard
       document.getElementById('source-copy-btn').addEventListener('click', () => {
-        navigator.clipboard.writeText(tab.sourceTitle).then(() => {
+        const srcVal = document.getElementById('source-title-text').value || tab.sourceTitle;
+        navigator.clipboard.writeText(srcVal).then(() => {
           const btn = document.getElementById('source-copy-btn');
           if (btn) {
             btn.innerHTML = '<i data-lucide="check" class="icon-sm"></i>';
@@ -1215,7 +1359,7 @@
       document.getElementById('source-image-search-btn').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const q = encodeURIComponent(tab.sourceTitle);
+        const q = encodeURIComponent(document.getElementById('source-title-text').value || tab.sourceTitle);
         const url = `https://www.google.com/search?q=${q}&tbm=isch`;
         if (window.pywebview) {
           window.pywebview.api.open_url(url);
@@ -1228,7 +1372,7 @@
       document.getElementById('source-beatport-btn').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const q = encodeURIComponent(tab.sourceTitle);
+        const q = encodeURIComponent(document.getElementById('source-title-text').value || tab.sourceTitle);
         const url = `https://www.beatport.com/search?q=${q}`;
         if (window.pywebview) {
           window.pywebview.api.open_url(url);
@@ -1289,18 +1433,19 @@
 
     function updateArtworkPreview(tab) {
       const preview = document.getElementById('artwork-preview');
-      const clearBtn = document.getElementById('artwork-clear-btn');
       if (!preview) return;
+      const removeBtn = `<button class="artwork-remove-btn" id="artwork-clear-btn" type="button" title="Remove artwork"><i data-lucide="x" class="icon-sm"></i></button>`;
       if (tab.artworkThumb) {
-        preview.innerHTML = `<img src="${escHtml(tab.artworkThumb)}" alt="artwork" />`;
+        preview.innerHTML = `<img src="${escHtml(tab.artworkThumb)}" alt="artwork" />${removeBtn}`;
         preview.classList.add('has-art');
-        if (clearBtn) clearBtn.style.display = '';
       } else {
-        preview.innerHTML = '<i data-lucide="image" class="icon-xl"></i>';
+        preview.innerHTML = `<div class="artwork-placeholder"><i data-lucide="image" class="icon-xl"></i><span>Drag an image here</span></div>${removeBtn}`;
         preview.classList.remove('has-art');
-        refreshIcons(preview);
-        if (clearBtn) clearBtn.style.display = 'none';
       }
+      refreshIcons(preview);
+      // Re-bind remove button after innerHTML replace
+      const newClearBtn = document.getElementById('artwork-clear-btn');
+      if (newClearBtn) newClearBtn.addEventListener('click', _artworkClearHandler(tab));
     }
 
     /* ══════════════════════════════════════════════════════
@@ -1410,6 +1555,7 @@
         artist:      tab.artist.trim(),
         album:       tab.album.trim(),
         genre:       tab.genre,
+        comments:    tab.comments || undefined,
         date:        tab.year || undefined,
         artwork_url: tab.artworkFull || undefined,
       };
@@ -1474,6 +1620,7 @@
             tab.status = 'done';
             tab.filename = job.filename || '';
             if (jobId) fetch(`/reveal/${jobId}`);
+            if (jobId && platinumToggle.checked) fetch(`/platinum/${jobId}`);
             showToast({ status: 'done', filename: tab.filename });
           } else {
             tab.status = 'error';
