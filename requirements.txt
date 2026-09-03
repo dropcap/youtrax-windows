@@ -1,8 +1,9 @@
-yt-dlp>=2024.1.0
+yt-dlp>=2026.7.4
 flask>=3.0.0
-imageio-ffmpeg>=0.5.1
-pywebview>=5.0
-mutagen>=1.47.0
-musicbrainzngs>=0.7.1
-pyinstaller>=6.0.0
-pillow>=10.0.0
+imageio-ffmpeg>=0.5.1  # bundles a static FFmpeg binary — no system install needed
+pywebview>=5.0         # native window with embedded webview
+mutagen>=1.47.0        # read/write MP3 ID3 tags
+Pillow>=10.0.0          # resize/normalize artwork before embedding
+numpy>=2.0.0           # FFT + autocorrelation for BPM detection
+musicbrainzngs>=0.7.1  # MusicBrainz metadata + cover art lookup
+pyinstaller>=6.0.0     # build the Windows exe

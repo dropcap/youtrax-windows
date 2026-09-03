@@ -295,6 +295,13 @@
     }
     .settings-btn:hover { color: var(--text); background: var(--border); }
     .settings-btn.active { color: var(--accent); background: rgba(108,99,255,.12); }
+    .settings-btn { position: relative; }
+    .settings-btn .update-dot {
+      position: absolute; top: 3px; right: 3px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent); display: none;
+    }
+    .settings-btn.has-update .update-dot { display: block; }
 
     /* ── Source title reference bar ── */
     .source-title-bar {
@@ -375,6 +382,26 @@
       justify-content: center;
     }
     .title-append-btn:hover { color: var(--accent); background: rgba(108,99,255,.12); }
+
+    /* Text variant of the inline field buttons (e.g. BPM's octave shortcuts),
+       sized to match the icon buttons on the Title field. */
+    .title-append-btn.is-text {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .02em;
+      /* Match the height the icon buttons get from their SVG. */
+      min-height: 24px;
+    }
+
+    /* Two fields sharing one row, each taking half the width. */
+    .field-row {
+      display: flex;
+      gap: 12px;
+    }
+    .field-row > .field {
+      flex: 1 1 0;
+      min-width: 0;
+    }
 
     /* ── Tags two-column layout ── */
     .tags-layout {
@@ -670,6 +697,71 @@
       font-size: .82rem;
       color: var(--muted);
     }
+
+    /* ── About / updates (settings drawer) ── */
+    .about-section {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+    .about-row { display: flex; align-items: center; justify-content: space-between; }
+    .about-version { font-size: .85rem; font-weight: 600; }
+    .about-version span { color: var(--muted); font-weight: 500; }
+    .whats-new-link {
+      background: none; border: none; color: var(--accent);
+      font-size: .8rem; cursor: pointer; padding: 2px 0; width: auto;
+    }
+    .whats-new-link:hover { color: var(--accent-h); text-decoration: underline; }
+    .update-row { margin-top: 12px; display: flex; align-items: center; gap: 10px; }
+    .update-btn {
+      flex-shrink: 0; padding: 8px 13px; width: auto;
+      background: var(--border); color: var(--text);
+      font-size: .8rem; font-weight: 600; border-radius: 8px; cursor: pointer;
+      border: none; transition: background .15s;
+    }
+    .update-btn:hover:not(:disabled) { background: #3a3a52; }
+    [data-theme="light"] .update-btn { background: #d0d0da; color: var(--text); }
+    [data-theme="light"] .update-btn:hover:not(:disabled) { background: #c8c8dc; }
+    .update-btn.available { background: var(--accent); color: #fff; }
+    .update-btn.available:hover:not(:disabled) { background: var(--accent-h); }
+    [data-theme="light"] .update-btn.available { background: var(--accent); color: #fff; }
+    [data-theme="light"] .update-btn.available:hover:not(:disabled) { background: var(--accent-h); }
+    .update-btn:disabled { opacity: .6; cursor: default; }
+    .update-status { font-size: .75rem; color: var(--muted); min-width: 0; }
+    .update-status.error { color: var(--error); }
+
+    /* ── What's New modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1500;
+      background: rgba(0,0,0,.55);
+      display: none; align-items: center; justify-content: center;
+      padding: 32px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%; max-width: 560px; max-height: 80vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 16px 60px rgba(0,0,0,.5);
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px 14px; border-bottom: 1px solid var(--border);
+    }
+    .modal-title { font-size: 1rem; font-weight: 700; }
+    .modal-body {
+      padding: 8px 22px 22px; overflow-y: auto;
+      font-size: .85rem; line-height: 1.55;
+    }
+    .modal-body h2 { font-size: .92rem; margin: 18px 0 6px; }
+    .modal-body h3 {
+      font-size: .74rem; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--muted); margin: 12px 0 4px;
+    }
+    .modal-body ul { margin: 0 0 4px 18px; padding: 0; }
+    .modal-body li { margin: 3px 0; }
+    .modal-body p { margin: 8px 0; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -700,7 +792,7 @@
             <div class="subtitle">320 kbps MP3 downloader - powered by dropcap</div>
           </div>
         </div>
-        <button class="settings-btn" id="settings-btn" type="button" title="Settings"><i data-lucide="settings" class="icon-md"></i></button>
+        <button class="settings-btn" id="settings-btn" type="button" title="Settings"><i data-lucide="settings" class="icon-md"></i><span class="update-dot"></span></button>
       </div>
       <div class="url-row">
         <input
@@ -758,8 +850,30 @@
         </label>
       </div>
       <div class="settings-hint">Auto-open downloads in Platinum Notes for audio enhancement.</div>
+
+      <div class="about-section">
+        <div class="about-row">
+          <div class="about-version">YouTrax <span id="app-version"></span></div>
+          <button class="whats-new-link" id="whats-new-btn" type="button">What's New</button>
+        </div>
+        <div class="update-row">
+          <button class="update-btn" id="update-btn" type="button">Check for Updates</button>
+          <span class="update-status" id="update-status"></span>
+        </div>
+      </div>
     </div>
 
+  </div>
+
+  <!-- ── What's New modal ── -->
+  <div class="modal-overlay" id="whats-new-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">What's New</span>
+        <button class="drawer-close" id="whats-new-close" type="button"><i data-lucide="x" class="icon-md"></i></button>
+      </div>
+      <div class="modal-body" id="whats-new-body"></div>
+    </div>
   </div>
 
   <!-- ── Drag-and-drop overlay ── -->
@@ -895,6 +1009,138 @@
     loadSettings();
 
     /* ══════════════════════════════════════════════════════
+       VERSION, WHAT'S NEW & IN-APP UPDATES
+    ══════════════════════════════════════════════════════ */
+    const appVersionEl   = document.getElementById('app-version');
+    const updateBtn      = document.getElementById('update-btn');
+    const updateStatusEl = document.getElementById('update-status');
+    const whatsNewBtn     = document.getElementById('whats-new-btn');
+    const whatsNewOverlay = document.getElementById('whats-new-overlay');
+    const whatsNewBody    = document.getElementById('whats-new-body');
+    const whatsNewClose   = document.getElementById('whats-new-close');
+    const settingsGear    = document.getElementById('settings-btn');
+
+    (async function loadVersion() {
+      try {
+        const data = await (await fetch('/api/version')).json();
+        appVersionEl.textContent = 'v' + data.version;
+      } catch (_) {}
+    })();
+
+    /* Renders the subset of markdown CHANGELOG.md uses:
+       ## headings, ### headings, - bullets, plain paragraphs.
+       The preamble before the first release heading is repo housekeeping,
+       so it is skipped. */
+    function renderChangelog(md) {
+      const esc = s => s.replace(/[&<>"]/g,
+        c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const inline = s => esc(s)
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>');
+      md = md.replace(/^## \[Unreleased\]\s*(?=^## \[)/m, '');  // hide when empty
+      let html = '', inList = false, started = false;
+      const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+      for (const line of md.split('\n')) {
+        const t = line.trim();
+        if (t.startsWith('## ')) started = true;
+        if (!started || !t || t.startsWith('# ')) { closeList(); continue; }
+        if (t.startsWith('## ')) {
+          closeList();
+          html += `<h2>${esc(t.slice(3).replace(/[\[\]]/g, ''))}</h2>`;
+        } else if (t.startsWith('### ')) {
+          closeList();
+          html += `<h3>${esc(t.slice(4))}</h3>`;
+        } else if (t.startsWith('- ')) {
+          if (!inList) { html += '<ul>'; inList = true; }
+          html += `<li>${inline(t.slice(2))}</li>`;
+        } else {
+          closeList();
+          html += `<p>${inline(t)}</p>`;
+        }
+      }
+      closeList();
+      return html;
+    }
+
+    whatsNewBtn.addEventListener('click', async () => {
+      try {
+        const data = await (await fetch('/api/changelog')).json();
+        whatsNewBody.innerHTML = renderChangelog(data.changelog || 'No release notes available.');
+        whatsNewOverlay.classList.add('open');
+      } catch (_) {}
+    });
+    whatsNewClose.addEventListener('click', () => whatsNewOverlay.classList.remove('open'));
+    whatsNewOverlay.addEventListener('click', e => {
+      if (e.target === whatsNewOverlay) whatsNewOverlay.classList.remove('open');
+    });
+
+    let updateState = { status: 'idle' };
+    let updatePollTimer = null;
+
+    function applyUpdateState(s) {
+      updateState = s;
+      settingsGear.classList.toggle('has-update',
+        s.status === 'available' || s.status === 'staged');
+      updateBtn.classList.toggle('available',
+        s.status === 'available' || s.status === 'staged');
+      updateBtn.disabled = ['checking', 'downloading', 'installing', 'disabled']
+        .includes(s.status);
+      updateStatusEl.classList.toggle('error', s.status === 'error');
+      const labels = {
+        idle:        ['Check for Updates', ''],
+        disabled:    ['Check for Updates', 'Updates aren’t available in this build.'],
+        checking:    ['Checking…', ''],
+        current:     ['Check for Updates', 'You’re up to date.'],
+        available:   [`Update to v${s.version}`, ''],
+        downloading: ['Downloading…', 'This can take a few minutes.'],
+        staged:      ['Restart to Update', `v${s.version} is ready to install.`],
+        installing:  ['Restarting…', 'YouTrax will reopen on the new version.'],
+        error:       ['Check for Updates', s.error || 'Something went wrong.'],
+      };
+      const [label, status] = labels[s.status] || labels.idle;
+      updateBtn.textContent = label;
+      updateStatusEl.textContent = status;
+    }
+
+    function pollUpdateState() {
+      clearInterval(updatePollTimer);
+      updatePollTimer = setInterval(async () => {
+        try {
+          const s = await (await fetch('/api/update/state')).json();
+          applyUpdateState(s);
+          if (s.status !== 'downloading' && s.status !== 'checking') {
+            clearInterval(updatePollTimer);
+          }
+        } catch (_) {}
+      }, 1000);
+    }
+
+    updateBtn.addEventListener('click', async () => {
+      try {
+        if (updateState.status === 'available') {
+          applyUpdateState(await (await fetch('/api/update/download', { method: 'POST' })).json());
+          pollUpdateState();
+        } else if (updateState.status === 'staged') {
+          applyUpdateState(await (await fetch('/api/update/install', { method: 'POST' })).json());
+        } else {
+          applyUpdateState({ status: 'checking' });
+          applyUpdateState(await (await fetch('/api/update/check', { method: 'POST' })).json());
+        }
+      } catch (_) {
+        applyUpdateState({ status: 'error', error: 'Could not reach the update service.' });
+      }
+    });
+
+    /* The app checks for updates in the background at launch; pick up the
+       result shortly after load so the gear icon can show a badge. */
+    setTimeout(async () => {
+      try {
+        applyUpdateState(await (await fetch('/api/update/state')).json());
+      } catch (_) {}
+    }, 4000);
+
+    /* ══════════════════════════════════════════════════════
        YOUTUBE TITLE PARSER
     ══════════════════════════════════════════════════════ */
     function parseYouTubeTitle(raw) {
@@ -940,6 +1186,7 @@
         tab.album  = cleanAlbumTitle(parsed.songTitle);
         urlInput.value = '';
         switchTab(tab.id);
+        detectBpm(tab);
       } catch (err) {
         showToast({ status: 'error', error: err.message });
       } finally {
@@ -947,6 +1194,27 @@
         fetchBtn.textContent = 'Convert';
       }
     });
+
+    /* Analyse tempo in the background so the field is filled by the time the
+       user has finished editing tags. A failure is silent: the download path
+       detects tempo from the finished file anyway. */
+    async function detectBpm(tab) {
+      if (tab.bpmState === 'manual' || tab.bpm) return;
+      tab.bpmState = 'detecting';
+      if (tab.id === activeTabId) renderContent();
+      try {
+        const res = await fetch(`/bpm?url=${encodeURIComponent(tab.url)}`);
+        const data = await res.json();
+        if (!res.ok || !data.bpm) throw new Error(data.error || 'no bpm');
+        if (tab.bpmState !== 'manual') {
+          tab.bpm = String(data.bpm);
+          tab.bpmState = 'auto';
+        }
+      } catch (_) {
+        if (tab.bpmState === 'detecting') tab.bpmState = '';
+      }
+      if (tab.id === activeTabId) renderContent();
+    }
 
     urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchBtn.click(); });
 
@@ -964,6 +1232,8 @@
         album: title,
         sourceTitle: title,
         genre: 'Music',
+        bpm: '',
+        bpmState: '',
         comments: '',
         year: String(new Date().getFullYear()),
         artworkThumb: '',
@@ -1162,9 +1432,21 @@
                 <label for="tag-album">Album</label>
                 <input id="tag-album" type="text" value="${escHtml(tab.album)}" />
               </div>
-              <div class="field">
-                <label for="tag-year">Year</label>
-                <input id="tag-year" type="text" value="${escHtml(tab.year)}" maxlength="4" />
+              <div class="field-row">
+                <div class="field">
+                  <label for="tag-year">Year</label>
+                  <input id="tag-year" type="text" value="${escHtml(tab.year)}" maxlength="4" />
+                </div>
+                <div class="field">
+                  <label for="tag-bpm">BPM</label>
+                  <div class="title-input-wrap">
+                    <input id="tag-bpm" type="text" value="${escHtml(tab.bpm)}" placeholder="${tab.bpmState === 'detecting' ? 'Detecting…' : 'Auto'}" />
+                    <div class="title-append-btns">
+                      <button class="title-append-btn is-text" type="button" id="bpm-half" title="Halve (fix double-time)">&divide;2</button>
+                      <button class="title-append-btn is-text" type="button" id="bpm-double" title="Double (fix half-time)">&times;2</button>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="field">
                 <label for="tag-genre">Genre</label>
@@ -1241,6 +1523,28 @@
           }
         });
         genreInput.addEventListener('input', () => { tab.genre = genreInput.value; });
+      }
+
+      // BPM: free text so a value can be corrected or cleared, plus x2 / /2
+      // shortcuts for the one error tempo detection realistically makes.
+      const bpmInput = document.getElementById('tag-bpm');
+      if (bpmInput) {
+        bpmInput.addEventListener('input', () => {
+          tab.bpm = bpmInput.value;
+          tab.bpmState = 'manual';
+        });
+        const scaleBpm = factor => {
+          const current = parseFloat(tab.bpm);
+          if (!current) return;
+          const next = Math.floor(current * factor + 0.5);
+          tab.bpm = String(next);
+          tab.bpmState = 'manual';
+          bpmInput.value = tab.bpm;
+        };
+        const halfBtn = document.getElementById('bpm-half');
+        const dblBtn  = document.getElementById('bpm-double');
+        if (halfBtn) halfBtn.addEventListener('click', () => scaleBpm(0.5));
+        if (dblBtn)  dblBtn.addEventListener('click', () => scaleBpm(2));
       }
 
       // Comments
@@ -1557,6 +1861,7 @@
         genre:       tab.genre,
         comments:    tab.comments || undefined,
         date:        tab.year || undefined,
+        bpm:         (tab.bpm || '').trim() || undefined,
         artwork_url: tab.artworkFull || undefined,
       };
 

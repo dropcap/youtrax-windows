@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """tagger.py — Fetch metadata from MusicBrainz + Cover Art Archive and write ID3 tags."""
 
+import math
 import re
 import time
 import logging
@@ -147,14 +148,75 @@ def fetch_cover_art(release_id: str) -> Optional[bytes]:
 
 
 # ---------------------------------------------------------------------------
+# Artwork normalization
+# ---------------------------------------------------------------------------
+
+_ARTWORK_SIZE = 800
+
+
+def _normalize_artwork(data: bytes) -> Optional[bytes]:
+    """Decode artwork of any format/size and re-encode as an 800x800 JPEG.
+
+    Non-square source images are center-cropped to square before resizing.
+    """
+    try:
+        import io
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(data))
+
+        if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+            img = img.convert('RGBA')
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[-1])
+            img = background
+        else:
+            img = img.convert('RGB')
+
+        w, h = img.size
+        side = min(w, h)
+        left = (w - side) // 2
+        top = (h - side) // 2
+        img = img.crop((left, top, left + side, top + side))
+
+        resample = getattr(Image, 'Resampling', Image).LANCZOS
+        img = img.resize((_ARTWORK_SIZE, _ARTWORK_SIZE), resample)
+
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=90)
+        return buf.getvalue()
+    except Exception as exc:
+        log.warning('Artwork normalization failed: %s', exc)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # ID3 tag writer
 # ---------------------------------------------------------------------------
+
+def _format_bpm(value) -> str:
+    """
+    Render a tempo for the TBPM frame as a whole number.
+
+    ID3v2.3 defines TBPM as a numeric string, and every tempo is rounded to
+    the nearest integer: 128.2 becomes 128, 126.99 becomes 127.
+    """
+    try:
+        bpm = float(value)
+    except (TypeError, ValueError):
+        return ''
+    if bpm <= 0:
+        return ''
+    # math.floor(x + 0.5) rather than round(), which rounds halves to even
+    # and would turn 128.5 into 128 instead of 129.
+    return str(int(math.floor(bpm + 0.5)))
+
 
 def apply_tags(mp3_path: str, metadata: dict, artwork: Optional[bytes] = None) -> None:
     """Write ID3 tags to the MP3 file using mutagen."""
     from mutagen.id3 import (
         ID3, ID3NoHeaderError,
-        TIT2, TPE1, TALB, TDRC, TRCK, TPUB, TCON, APIC,
+        TIT2, TPE1, TALB, TDRC, TRCK, TPUB, TCON, TBPM, APIC, COMM,
     )
 
     path = Path(mp3_path)
@@ -181,12 +243,19 @@ def apply_tags(mp3_path: str, metadata: dict, artwork: Optional[bytes] = None) -
         tags['TPUB'] = TPUB(encoding=3, text=metadata['label'])
     if metadata.get('genre'):
         tags['TCON'] = TCON(encoding=3, text=metadata['genre'])
+    if metadata.get('bpm'):
+        tags['TBPM'] = TBPM(encoding=3, text=_format_bpm(metadata['bpm']))
+    if metadata.get('comments'):
+        tags['COMM::eng'] = COMM(encoding=3, lang='eng', desc='', text=metadata['comments'])
 
     track = metadata.get('track_number')
     total = metadata.get('total_tracks')
     if track is not None:
         trck = str(track) if total is None else f'{track}/{total}'
         tags['TRCK'] = TRCK(encoding=3, text=trck)
+
+    if artwork:
+        artwork = _normalize_artwork(artwork)
 
     if artwork:
         tags['APIC'] = APIC(

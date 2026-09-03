@@ -1,0 +1,4 @@
+{
+  "_comment": "Update feed for the in-app updater. The GitHub Actions workflow attaches YouTrax.exe to a GitHub Release whenever a v* tag is pushed; the app polls that repo's latest release. An empty string disables update checks.",
+  "github_repo": "dropcap/youtrax-windows"
+}

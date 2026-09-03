@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """app.py — Flask web UI for ytdl.py."""
 
+import glob
 import json
+import os
 import threading
 import uuid
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request, send_file
+import app_updater
+from version import get_changelog, get_version
 from tagger import apply_tags
+from bpm import detect_bpm
+from ytdl import (
+    EXTRACTOR_ARGS, download_excerpt, forbidden_hint, sanitize_filename,
+)
 
 SETTINGS_FILE = Path.home() / '.config' / 'ytdl' / 'settings.json'
 
@@ -38,6 +46,43 @@ app = Flask(__name__)
 # job_id -> job state dict
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
+
+
+# ---------------------------------------------------------------------------
+# Windows shell helpers
+# ---------------------------------------------------------------------------
+
+def reveal_in_explorer(path: str) -> None:
+    """Open Windows Explorer with *path* selected."""
+    import subprocess
+    subprocess.run(['explorer', '/select,', os.path.normpath(path)], check=False)
+
+
+def find_platinum_notes() -> str | None:
+    """Locate the Platinum Notes executable, wherever it was installed."""
+    roots = [
+        os.environ.get('ProgramFiles', r'C:\Program Files'),
+        os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+    ]
+    for root in roots:
+        matches = sorted(
+            glob.glob(os.path.join(root, 'Platinum Notes*', '*.exe')),
+            reverse=True,
+        )
+        exes = [m for m in matches if 'unins' not in os.path.basename(m).lower()]
+        if exes:
+            return exes[0]
+    return None
+
+
+def open_in_platinum_notes(path: str) -> bool:
+    """Open *path* in Platinum Notes; returns False when it isn't installed."""
+    import subprocess
+    exe = find_platinum_notes()
+    if not exe:
+        return False
+    subprocess.Popen([exe, os.path.normpath(path)], close_fds=True)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +119,7 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
             'eta': 0,
             'file': None,
             'filename': None,
+            'bpm': None,
             'error': None,
         }
 
@@ -81,6 +127,17 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
         output_file = download_audio(
             url, output_dir=output_dir, progress_hook=progress_hook, verbose=False
         )
+
+        # Detect tempo unless the user typed one. The audio is already on
+        # disk, so this costs a fraction of a second and no extra bandwidth.
+        if not str(tags.get('bpm') or '').strip():
+            with _lock:
+                _jobs[job_id]['status'] = 'analyzing'
+            bpm, _confidence = detect_bpm(output_file)
+            if bpm:
+                tags['bpm'] = bpm
+                with _lock:
+                    _jobs[job_id]['bpm'] = bpm
 
         # Apply user-supplied tags + fetch artwork if URL provided
         with _lock:
@@ -91,7 +148,7 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
         if artwork_url:
             try:
                 if artwork_url.startswith('data:'):
-                    # Base64-encoded image dragged from Finder or browser
+                    # Base64-encoded image dragged from Explorer or browser
                     import base64
                     _, data = artwork_url.split(',', 1)
                     artwork_bytes = base64.b64decode(data)
@@ -107,6 +164,17 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
 
         apply_tags(output_file, tags, artwork=artwork_bytes)
 
+        # Rename to "Title - Artist.mp3" using user-supplied tags
+        title = (tags.get('title') or '').strip()
+        artist = (tags.get('artist') or '').strip()
+        if title and artist:
+            new_name = sanitize_filename(f"{title} - {artist}") + '.mp3'
+            old_path = Path(output_file)
+            new_path = old_path.parent / new_name
+            if new_path != old_path and not new_path.exists():
+                old_path.rename(new_path)
+                output_file = str(new_path)
+
         with _lock:
             _jobs[job_id].update(
                 status='done',
@@ -116,7 +184,9 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
             )
     except yt_dlp.utils.DownloadError as exc:
         msg = str(exc).lower()
-        if 'unavailable' in msg or 'private' in msg:
+        if 'http error 403' in msg or 'forbidden' in msg:
+            error = forbidden_hint()
+        elif 'unavailable' in msg or 'private' in msg:
             error = 'Video is unavailable or private.'
         elif 'unsupported url' in msg or 'not a valid url' in msg:
             error = 'Invalid or unsupported URL.'
@@ -129,6 +199,45 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
     except Exception as exc:  # noqa: BLE001
         with _lock:
             _jobs[job_id].update(status='error', error=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Tempo preview
+# ---------------------------------------------------------------------------
+
+_bpm_cache: dict[str, float] = {}
+_bpm_cache_lock = threading.Lock()
+_BPM_CACHE_MAX = 200
+
+
+def bpm_for_url(url: str):
+    """
+    Estimate a URL's tempo from a short excerpt, so the tag editor can be
+    pre-filled before the user commits to a download.
+
+    Cached per URL: re-opening the same track is free, and the download job
+    reuses nothing here, so the cost is paid at most once per link.
+    """
+    with _bpm_cache_lock:
+        if url in _bpm_cache:
+            return _bpm_cache[url]
+
+    import shutil
+    import tempfile
+
+    tmp = tempfile.mkdtemp(prefix='ytdl-bpm-')
+    try:
+        path = download_excerpt(url, tmp)
+        bpm, _confidence = detect_bpm(path)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    if bpm:
+        with _bpm_cache_lock:
+            if len(_bpm_cache) >= _BPM_CACHE_MAX:
+                _bpm_cache.clear()
+            _bpm_cache[url] = bpm
+    return bpm
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +256,12 @@ def get_info():
     if not url:
         return jsonify(error='URL is required'), 400
     try:
-        ydl_opts = {'quiet': True, 'no_warnings': True, 'noplaylist': True}
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'noplaylist': True,
+            'extractor_args': EXTRACTOR_ARGS,
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
         return jsonify(
@@ -164,6 +278,21 @@ def get_info():
         return jsonify(error=str(exc)), 400
     except Exception as exc:
         return jsonify(error=str(exc)), 400
+
+
+@app.get('/bpm')
+def get_bpm():
+    """Estimate tempo for a URL without downloading the full track."""
+    url = request.args.get('url', '').strip()
+    if not url:
+        return jsonify(error='URL is required'), 400
+    try:
+        bpm = bpm_for_url(url)
+    except Exception as exc:
+        return jsonify(error=str(exc)), 400
+    if not bpm:
+        return jsonify(error='Could not determine BPM'), 422
+    return jsonify(bpm=bpm)
 
 
 @app.post('/download')
@@ -259,17 +388,64 @@ def artwork_search():
         return jsonify(error=str(exc)), 500
 
 
+@app.get('/api/version')
+def api_version():
+    return jsonify(version=get_version())
+
+
+@app.get('/api/changelog')
+def api_changelog():
+    return jsonify(changelog=get_changelog())
+
+
+@app.get('/api/update/state')
+def api_update_state():
+    return jsonify(app_updater.get_state())
+
+
+@app.post('/api/update/check')
+def api_update_check():
+    return jsonify(app_updater.check_for_update())
+
+
+@app.post('/api/update/download')
+def api_update_download():
+    return jsonify(app_updater.start_download())
+
+
+@app.post('/api/update/install')
+def api_update_install():
+    # In-app install only exists in the packaged Windows app (main.py).
+    return jsonify(app_updater.get_state())
+
+
 @app.get('/reveal/<job_id>')
 def reveal_file(job_id: str):
-    import subprocess
     with _lock:
         job = _jobs.get(job_id)
     if not job or job['status'] != 'done' or not job.get('file'):
         return jsonify(error='File not ready'), 404
-    subprocess.run(['open', '-R', job['file']], check=False)
+    reveal_in_explorer(job['file'])
+    return jsonify(ok=True)
+
+
+@app.get('/platinum/<job_id>')
+def open_in_platinum(job_id: str):
+    """Open the downloaded file in Platinum Notes for audio enhancement."""
+    with _lock:
+        job = _jobs.get(job_id)
+    if not job or job['status'] != 'done' or not job.get('file'):
+        return jsonify(error='File not ready'), 404
+    if not open_in_platinum_notes(job['file']):
+        return jsonify(error='Platinum Notes is not installed'), 404
     return jsonify(ok=True)
 
 
 if __name__ == '__main__':
     import os as _os
+
+    # No-op outside a frozen build; there, fetch a newer yt-dlp for next launch.
+    from ytdlp_updater import start_background_check
+    start_background_check()
+
     app.run(debug=True, port=int(_os.environ.get('PORT', 5000)))

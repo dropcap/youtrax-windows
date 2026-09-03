@@ -31,6 +31,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # yt-dlp needs a JS runtime for YouTube's signature challenges; ship it.
+      - name: Vendor Deno
+        run: .\vendor_deno.ps1
+
       - name: Build EXE
         run: pyinstaller youtrax_win.spec --noconfirm
 

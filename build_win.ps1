@@ -8,6 +8,9 @@ $ErrorActionPreference = "Stop"
 Write-Host "==> Installing dependencies..."
 pip install -r requirements.txt
 
+Write-Host "==> Vendoring Deno (yt-dlp's JS runtime)..."
+.\vendor_deno.ps1
+
 Write-Host "==> Generating icon..."
 python generate_icon_win.py
 
@@ -15,5 +18,4 @@ Write-Host "==> Building YouTrax.exe..."
 pyinstaller youtrax_win.spec --noconfirm
 
 Write-Host ""
-Write-Host "Done! YouTrax is available in dist\YouTrax\"
-Write-Host "Run dist\YouTrax\YouTrax.exe to launch."
+Write-Host "Done! Run dist\YouTrax.exe to launch."
