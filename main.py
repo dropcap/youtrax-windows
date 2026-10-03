@@ -24,11 +24,11 @@ except ImportError:
 
 from app import (
     _jobs, _lock, _run_download, _load_settings, _save_settings, bpm_for_url,
-    open_in_platinum_notes, reveal_in_explorer,
+    import_soundcloud_token, info_for_url, open_in_platinum_notes,
+    reveal_in_explorer,
 )
 import app_updater
 from version import get_changelog, get_version
-from ytdl import EXTRACTOR_ARGS
 
 import json
 import urllib.request
@@ -165,19 +165,7 @@ def get_info():
     if not url:
         return jsonify(error='URL is required'), 400
     try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'noplaylist': True,
-            'extractor_args': EXTRACTOR_ARGS,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-        return jsonify(
-            title=info.get('title', ''),
-            thumbnail=info.get('thumbnail', ''),
-            uploader=info.get('uploader', ''),
-        )
+        return jsonify(info_for_url(url))
     except yt_dlp.utils.DownloadError as exc:
         msg = str(exc).lower()
         if 'unavailable' in msg or 'private' in msg:
@@ -187,6 +175,13 @@ def get_info():
         return jsonify(error=str(exc)), 400
     except Exception as exc:
         return jsonify(error=str(exc)), 400
+
+
+@flask_app.post('/soundcloud/import')
+def soundcloud_import():
+    data = request.get_json(silent=True) or {}
+    payload, status = import_soundcloud_token(data.get('browser', ''))
+    return jsonify(payload), status
 
 
 @flask_app.get('/bpm')

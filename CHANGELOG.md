@@ -9,6 +9,16 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-03
+
+### Added
+- SoundCloud support: paste or drag a SoundCloud link exactly like a YouTube one — tag editing, BPM preview, artwork, and 320 kbps MP3 conversion all work the same
+- SoundCloud downloads grab the highest-quality source available: the uploader's original file (WAV/AIFF) when downloads are enabled, otherwise the best stream
+- Connect your SoundCloud account from Settings — one click imports your login from Chrome, Edge, or Firefox (or paste the token manually) to unlock 256 kbps AAC streams and original-file downloads on subscriber plans
+- A notice on the download screen when a SoundCloud file came from the lower-quality guest stream because no account is connected or the token expired — silence means full quality
+- SoundCloud cover art loads into the artwork panel automatically (remove or replace it as usual), and artist/title come from SoundCloud's own metadata
+- New genres: Jackin House, Downtempo, and DJ Sets
+
 ## [1.2.1] - 2026-09-03
 
 ### Added

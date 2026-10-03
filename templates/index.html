@@ -225,7 +225,7 @@
     }
     .field { margin-bottom: 14px; }
 
-    input[type="text"] {
+    input[type="text"], input[type="password"] {
       width: 100%;
       padding: 10px 13px;
       border-radius: 8px;
@@ -236,7 +236,7 @@
       outline: none;
       transition: border-color .15s;
     }
-    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="text"]:focus, input[type="password"]:focus { border-color: var(--accent); }
     input::placeholder { color: var(--muted); }
 
     select {
@@ -798,7 +798,7 @@
         <input
           id="url-input"
           type="url"
-          placeholder="https://www.youtube.com/watch?v=..."
+          placeholder="Paste a YouTube or SoundCloud link…"
           autocomplete="off"
         />
         <button class="fetch-btn" id="fetch-btn" type="button">Convert</button>
@@ -812,7 +812,7 @@
     <div class="content" id="content">
       <div class="empty-state" id="empty-drop-zone">
         <div class="empty-icon"><i data-lucide="link-2" class="icon-xl"></i></div>
-        <div class="empty-title">Drag a YouTube URL here</div>
+        <div class="empty-title">Drag a YouTube or SoundCloud URL here</div>
         <div class="empty-sub">or paste a link in the search bar above</div>
       </div>
     </div>
@@ -850,6 +850,23 @@
         </label>
       </div>
       <div class="settings-hint">Auto-open downloads in Platinum Notes for audio enhancement.</div>
+
+      <div class="field" style="margin-top:20px">
+        <label>SoundCloud account</label>
+        <div class="folder-row">
+          <button class="browse-btn" data-sc-browser="chrome" type="button">Connect via Chrome</button>
+          <button class="browse-btn" data-sc-browser="safari" type="button">Safari</button>
+          <button class="browse-btn" data-sc-browser="edge" type="button">Edge</button>
+          <button class="browse-btn" data-sc-browser="firefox" type="button">Firefox</button>
+        </div>
+        <div class="settings-hint" id="sc-import-status">
+          Connects the SoundCloud account you're logged in with in that browser,
+          unlocking the highest quality your plan allows (256 kbps AAC and
+          original files where available).
+        </div>
+        <input type="password" id="sc-token" placeholder="…or paste your oauth_token cookie value manually"
+               autocomplete="off" spellcheck="false" style="margin-top:9px" />
+      </div>
 
       <div class="about-section">
         <div class="about-row">
@@ -974,6 +991,55 @@
       });
     });
 
+    const scTokenInput = document.getElementById('sc-token');
+    scTokenInput.addEventListener('change', async () => {
+      await fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ soundcloud_token: scTokenInput.value.trim() }),
+      });
+    });
+
+    const scImportStatus = document.getElementById('sc-import-status');
+    // One template serves both platforms: Safari exists only on macOS, and
+    // Edge is the browser worth offering on Windows. The token prompt note
+    // is macOS-specific too (Keychain guards Chrome's cookie store there).
+    const isMacPlatform = /Mac/i.test(navigator.platform || navigator.userAgent);
+    document.querySelectorAll('[data-sc-browser]').forEach((b) => {
+      if (b.dataset.scBrowser === 'safari' && !isMacPlatform) b.style.display = 'none';
+      if (b.dataset.scBrowser === 'edge' && isMacPlatform) b.style.display = 'none';
+    });
+    if (isMacPlatform) {
+      scImportStatus.textContent += ' macOS may ask once for Keychain access.';
+    }
+    document.querySelectorAll('[data-sc-browser]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const browser = btn.dataset.scBrowser;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Connecting…';
+        try {
+          const res = await fetch('/soundcloud/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ browser }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Import failed');
+          scTokenInput.value = data.token;
+          scImportStatus.textContent =
+            'Connected — your SoundCloud account is now used for downloads.';
+          scImportStatus.style.color = 'var(--success)';
+        } catch (err) {
+          scImportStatus.textContent = err.message;
+          scImportStatus.style.color = 'var(--error)';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      });
+    });
+
     async function loadSettings() {
       try {
         const res = await fetch('/settings');
@@ -981,6 +1047,7 @@
         if (data.download_dir) applyDir(data.download_dir);
         if (data.theme) applyTheme(data.theme);
         platinumToggle.checked = !!data.platinum_notes;
+        scTokenInput.value = data.soundcloud_token || '';
       } catch (_) {}
     }
     async function persistSettings(dir) {
@@ -1179,11 +1246,25 @@
 
         const raw = data.title || url;
         const parsed = parseYouTubeTitle(raw);
+        // A dashless title parses to artist === songTitle. Prefer structured
+        // metadata then: yt-dlp's artist field, or — on SoundCloud, where the
+        // account is the artist — the uploader.
+        if (parsed.artist === parsed.songTitle) {
+          const metaArtist = data.artist
+            || (data.source === 'SoundCloud' ? data.uploader : '');
+          if (metaArtist) parsed.artist = metaArtist;
+        }
         const tab = createTab(url, parsed.songTitle);
+        tab.source = data.source || 'YouTube';
         tab.sourceTitle = raw;
         tab.title  = parsed.songTitle;
         tab.artist = parsed.artist;
         tab.album  = cleanAlbumTitle(parsed.songTitle);
+        // SoundCloud artwork is square cover art — prefill it.
+        if (data.artwork_thumb) {
+          tab.artworkThumb = data.artwork_thumb;
+          tab.artworkFull  = data.artwork_full || data.artwork_thumb;
+        }
         urlInput.value = '';
         switchTab(tab.id);
         detectBpm(tab);
@@ -1231,6 +1312,7 @@
         artist: title,
         album: title,
         sourceTitle: title,
+        source: 'YouTube',
         genre: 'Music',
         bpm: '',
         bpmState: '',
@@ -1246,6 +1328,7 @@
         speed: '',
         eta: '',
         filename: '',
+        qualityNote: '',
         error: '',
         artworkGridVisible: false,
         artworkGridHtml: '',
@@ -1337,7 +1420,7 @@
         contentEl.innerHTML = `
           <div class="empty-state" id="empty-drop-zone">
             <div class="empty-icon"><i data-lucide="link-2" class="icon-xl"></i></div>
-            <div class="empty-title">Drag a YouTube URL here</div>
+            <div class="empty-title">Drag a YouTube or SoundCloud URL here</div>
             <div class="empty-sub">or paste a link in the search bar above</div>
           </div>`;
         refreshIcons(contentEl);
@@ -1378,7 +1461,7 @@
       const loadClass  = 'artwork-grid-loading' + (tab.artworkLoadingVisible ? ' visible' : '');
       const emptyClass = 'artwork-grid-empty' + (tab.artworkEmptyVisible ? ' visible' : '');
 
-      const genres = ['Music','House','Tech House','Bass House','Acid House','Afro House','Dance','Deep House','Disco House','Funky House','Indie Dance','Melodic House','Mainroom','Minimal','Progressive House','Techno','Trance','Vocal House','Custom'];
+      const genres = ['Music','House','Tech House','Bass House','Acid House','Afro House','Dance','Deep House','Disco House','Funky House','Indie Dance','Jackin House','Melodic House','Mainroom','Minimal','Progressive House','Techno','Trance','Vocal House','Downtempo','DJ Sets','Custom'];
       const isCustomGenre = !genres.slice(0,-1).includes(tab.genre);
       const genreSelectVal = isCustomGenre ? 'Custom' : tab.genre;
       const genreOptions = genres.map(g =>
@@ -1391,7 +1474,7 @@
 
           <!-- Source title reference bar -->
           <div class="source-title-bar">
-            <span class="source-title-label">YouTube Title</span>
+            <span class="source-title-label">${escHtml(tab.source || 'YouTube')} Title</span>
             <input class="source-title-text" id="source-title-text" type="text" value="${escHtml(tab.sourceTitle)}" title="${escHtml(tab.sourceTitle)}" />
             <button class="source-title-btn" type="button" id="source-copy-btn" title="Copy to clipboard"><i data-lucide="copy" class="icon-sm"></i></button>
             <button class="source-title-btn" type="button" id="source-image-search-btn" title="Search Google Images"><i data-lucide="search" class="icon-sm"></i></button>
@@ -1808,6 +1891,11 @@
             <div style="margin-bottom:12px;color:var(--success)"><i data-lucide="circle-check" class="icon-xl"></i></div>
             <div style="font-weight:600;font-size:.95rem;margin-bottom:6px;word-break:break-all">${escHtml(tab.filename)}</div>
             <div style="font-size:.8rem;color:var(--muted)">Saved to ${escHtml(savedDownloadDir || '~/Downloads')}</div>
+            ${tab.qualityNote ? `
+            <div style="display:flex;gap:7px;align-items:flex-start;justify-content:center;margin:14px auto 0;max-width:430px;padding:9px 12px;border-radius:8px;border:1px solid #e0a63a55;background:#e0a63a14;font-size:.78rem;line-height:1.45;color:#e0a63a;text-align:left">
+              <i data-lucide="triangle-alert" class="icon-sm" style="flex-shrink:0;margin-top:1px"></i>
+              <span>${escHtml(tab.qualityNote)}</span>
+            </div>` : ''}
           </div>
           <button class="btn-primary" id="done-close-btn" type="button">Close Tab</button>
         </div>`;
@@ -1833,6 +1921,7 @@
       document.getElementById('error-retry-btn').addEventListener('click', () => {
         tab.status = 'tags';
         tab.error = '';
+        tab.qualityNote = '';
         renderTabBar();
         renderContent();
       });
@@ -1924,6 +2013,7 @@
           if (job.status === 'done') {
             tab.status = 'done';
             tab.filename = job.filename || '';
+            tab.qualityNote = job.quality_note || '';
             if (jobId) fetch(`/reveal/${jobId}`);
             if (jobId && platinumToggle.checked) fetch(`/platinum/${jobId}`);
             showToast({ status: 'done', filename: tab.filename });

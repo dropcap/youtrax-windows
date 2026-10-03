@@ -29,6 +29,129 @@ _NO_WINDOW = 0x08000000 if os.name == 'nt' else 0  # CREATE_NO_WINDOW
 
 _EXE = '.exe' if os.name == 'nt' else ''
 
+# When the uploader enabled downloads, SoundCloud exposes the original
+# uploaded file (often WAV/AIFF/FLAC) as format_id "download". Its bitrate is
+# unlisted, so plain bestaudio can rank a 160k transcode above it; name it
+# explicitly. Other extractors have no such id and fall through untouched.
+AUDIO_FORMAT = 'bestaudio[format_id=download]/bestaudio/best'
+
+
+def is_soundcloud(url: str) -> bool:
+    return bool(re.match(r'https?://([^/]+\.)?(soundcloud\.com|snd\.sc)/', url))
+
+
+# Shared with the Flask app's settings endpoints; defined here so the
+# download layer can read the SoundCloud token without importing app.py.
+SETTINGS_FILE = Path.home() / '.config' / 'ytdl' / 'settings.json'
+
+# The token is a credential, so on macOS it lives in the Keychain rather
+# than the plaintext settings file (which stays as the non-mac fallback).
+_KEYCHAIN_SERVICE = 'YouTrax'
+_KEYCHAIN_ACCOUNT = 'soundcloud-oauth'
+
+# SoundCloud tokens are digits, dashes and alphanumerics. Refusing anything
+# else keeps pasted garbage out of the Keychain and the quoting below safe.
+_TOKEN_RE = re.compile(r'^[\w.-]{8,512}$')
+
+
+def _keychain_read_token() -> str:
+    if sys.platform != 'darwin':
+        return ''
+    try:
+        import subprocess
+        proc = subprocess.run(
+            ['security', 'find-generic-password', '-s', _KEYCHAIN_SERVICE,
+             '-a', _KEYCHAIN_ACCOUNT, '-w'],
+            capture_output=True, text=True, timeout=10,
+        )
+        return proc.stdout.strip() if proc.returncode == 0 else ''
+    except Exception:
+        return ''
+
+
+def store_soundcloud_token(token: str) -> bool:
+    """
+    Put *token* in the macOS Keychain ('' deletes the entry).
+
+    Returns True when the Keychain now holds the truth, False when the
+    caller must fall back to the settings file (non-mac, or Keychain error).
+    """
+    if sys.platform != 'darwin':
+        return False
+    if token and not _TOKEN_RE.match(token):
+        return False
+    try:
+        import subprocess
+        if not token:
+            subprocess.run(
+                ['security', 'delete-generic-password', '-s', _KEYCHAIN_SERVICE,
+                 '-a', _KEYCHAIN_ACCOUNT],
+                capture_output=True, timeout=10,
+            )
+            return True  # absent entry and deleted entry are the same truth
+        # Batch mode reads the command from stdin, keeping the secret out of
+        # the process list that `ps` could expose.
+        cmd = (f'add-generic-password -U -s "{_KEYCHAIN_SERVICE}" '
+               f'-a "{_KEYCHAIN_ACCOUNT}" -w "{token}"\n')
+        proc = subprocess.run(
+            ['security', '-i'], input=cmd, capture_output=True, text=True,
+            timeout=10,
+        )
+        return proc.returncode == 0
+    except Exception:
+        return False
+
+
+def soundcloud_oauth_token() -> str:
+    """The user's SoundCloud OAuth token, or '' when not configured."""
+    token = os.environ.get('YTDL_SOUNDCLOUD_TOKEN', '').strip()
+    if token:
+        return token
+    token = _keychain_read_token()
+    if token:
+        return token
+    try:
+        import json
+        cfg = json.loads(SETTINGS_FILE.read_text())
+        return str(cfg.get('soundcloud_token') or '').strip()
+    except Exception:
+        return ''
+
+
+def soundcloud_token_from_browser(browser: str):
+    """
+    The SoundCloud OAuth token from *browser*'s cookies, or None.
+
+    Uses yt-dlp's own cookie extraction, so whichever account is signed in
+    at soundcloud.com in that browser is the one that gets connected. On
+    macOS, reading Chrome's cookie store asks the user for Keychain access
+    through the OS prompt; Safari may require Full Disk Access.
+    """
+    from yt_dlp.cookies import extract_cookies_from_browser
+
+    jar = extract_cookies_from_browser(browser)
+    for cookie in jar:
+        if (cookie.name == 'oauth_token'
+                and 'soundcloud.com' in (cookie.domain or '') and cookie.value):
+            return cookie.value
+    return None
+
+
+def apply_soundcloud_auth(ydl_opts: dict, url: str) -> dict:
+    """
+    Authenticate SoundCloud requests when the user has saved an OAuth token.
+
+    yt-dlp signs in to SoundCloud with the literal username "oauth" and the
+    token as the password, which unlocks the subscriber-only streams (256 kbps
+    AAC on Go+/Artist plans) that anonymous requests never see.
+    """
+    if is_soundcloud(url):
+        token = soundcloud_oauth_token()
+        if token:
+            ydl_opts['username'] = 'oauth'
+            ydl_opts['password'] = token
+    return ydl_opts
+
 # YouTube signs its media URLs behind a JS challenge, so yt-dlp needs an
 # external JavaScript runtime to produce a working download URL. Probe the
 # usual per-user install locations too, in yt-dlp's own priority order —
@@ -174,17 +297,39 @@ def rename_by_tags(mp3_path: str, info: dict) -> str:
     return str(new)
 
 
+class _WarningCatcher:
+    """A yt-dlp logger that only collects warnings, printing nothing."""
+
+    def __init__(self):
+        self.warnings: list[str] = []
+
+    def debug(self, msg):
+        pass
+
+    info = debug
+    error = debug
+
+    def warning(self, msg):
+        self.warnings.append(str(msg))
+
+
 def download_audio(
     url: str,
     output_dir: str = './downloads',
     progress_hook=None,
     verbose: bool = True,
+    details: dict | None = None,
 ) -> str:
     """
     Download *url* and save as a 320 kbps MP3 inside *output_dir*.
 
     After download, the file is renamed to "Track - Artist.mp3" when
     metadata is available from YouTube, otherwise the video title is kept.
+
+    When *details* is given, it is filled with what was actually fetched —
+    'format_id', 'abr', and 'sc_token_rejected' (SoundCloud refused the
+    configured OAuth token and served guest quality) — so callers can tell
+    the user when a download came from a lower-quality source.
 
     Returns the absolute path to the saved MP3.
     Raises ``yt_dlp.utils.DownloadError`` on failure.
@@ -198,7 +343,7 @@ def download_audio(
     hooks = [progress_hook] if progress_hook else []
 
     ydl_opts: dict = {
-        'format': 'bestaudio/best',
+        'format': AUDIO_FORMAT,
         'outtmpl': str(out / '%(title)s.%(ext)s'),
         'noplaylist': True,            # only download the single video
         'postprocessors': [
@@ -213,6 +358,15 @@ def download_audio(
         'no_warnings': not verbose,
         'extractor_args': EXTRACTOR_ARGS,
     }
+    apply_soundcloud_auth(ydl_opts, url)
+
+    # In app mode, capture warnings (e.g. "token is invalid") instead of
+    # discarding them; in CLI mode leave yt-dlp's own console output alone.
+    catcher = None
+    if not verbose:
+        catcher = _WarningCatcher()
+        ydl_opts['logger'] = catcher
+        ydl_opts['no_warnings'] = False
 
     # Only override yt-dlp's default when we actually located a runtime.
     js_runtimes = find_js_runtimes()
@@ -245,6 +399,13 @@ def download_audio(
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
 
+        if details is not None:
+            details['format_id'] = info.get('format_id') or ''
+            details['abr'] = info.get('abr') or 0
+            details['sc_token_rejected'] = bool(catcher) and any(
+                'token is invalid' in w.lower() for w in catcher.warnings
+            )
+
         # 1. Best: postprocessor hook gave us the exact path yt-dlp wrote.
         if captured and Path(captured[-1]).exists():
             mp3_path = captured[-1]
@@ -264,13 +425,49 @@ def download_audio(
         return mp3_path
 
 
-def forbidden_hint() -> str:
+def progressive_stream_url(url: str):
     """
-    Explain an HTTP 403 from YouTube, naming the cause we can actually detect.
+    Resolve *url* to a direct, byte-seekable audio stream URL, or None.
 
-    A 403 almost always means yt-dlp could not solve YouTube's signature
-    challenge, which in turn almost always means no JavaScript runtime ran.
+    SoundCloud's progressive MP3 is CBR over plain HTTP, so ffmpeg can decode
+    an arbitrary window straight off the URL with range requests — the tempo
+    prefill uses this instead of downloading an excerpt (yt-dlp's range
+    downloader comes back empty against SoundCloud's HLS streams, and the
+    bundled ffmpeg cannot decode them directly either).
     """
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'noplaylist': True,
+        'format': 'bestaudio[protocol=http]/bestaudio/best',
+    }
+    apply_soundcloud_auth(ydl_opts, url)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except yt_dlp.utils.DownloadError:
+        return None
+    if info.get('protocol') == 'http':
+        return info.get('url')
+    return None
+
+
+def forbidden_hint(url: str = '') -> str:
+    """
+    Explain an HTTP 403, naming the cause we can actually detect.
+
+    From YouTube, a 403 almost always means yt-dlp could not solve the
+    signature challenge, which in turn almost always means no JavaScript
+    runtime ran. Other sources never involve the JS challenge, so none of
+    that diagnosis applies to them.
+    """
+    if url and is_soundcloud(url):
+        return (
+            'SoundCloud refused the download (HTTP 403). The track may be '
+            'blocked in your region or a SoundCloud change may have outpaced '
+            'this build — try again later.'
+        )
+
     base = 'YouTube refused the download (HTTP 403).'
 
     if find_js_runtimes():
@@ -381,6 +578,7 @@ def download_excerpt(url: str, output_dir: str, start: float = 30.0,
         'download_ranges': download_range_func(None, [(start, start + duration)]),
         'force_keyframes_at_cuts': False,
     }
+    apply_soundcloud_auth(ydl_opts, url)
 
     js_runtimes = find_js_runtimes()
     if js_runtimes:
@@ -436,7 +634,7 @@ def main() -> None:
     except yt_dlp.utils.DownloadError as exc:
         msg = str(exc).lower()
         if 'http error 403' in msg or 'forbidden' in msg:
-            print(f"Error: {forbidden_hint()}", file=sys.stderr)
+            print(f"Error: {forbidden_hint(args.url)}", file=sys.stderr)
         elif 'unavailable' in msg or 'private' in msg:
             print("Error: Video is unavailable or private.", file=sys.stderr)
         elif 'unsupported url' in msg or 'not a valid url' in msg:

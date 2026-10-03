@@ -4,6 +4,7 @@
 import glob
 import json
 import os
+import re
 import threading
 import uuid
 from pathlib import Path
@@ -14,23 +15,53 @@ from version import get_changelog, get_version
 from tagger import apply_tags
 from bpm import detect_bpm
 from ytdl import (
-    EXTRACTOR_ARGS, download_excerpt, forbidden_hint, sanitize_filename,
+    EXTRACTOR_ARGS, SETTINGS_FILE, apply_soundcloud_auth, download_excerpt,
+    forbidden_hint, is_soundcloud, progressive_stream_url, sanitize_filename,
+    soundcloud_oauth_token, soundcloud_token_from_browser,
+    store_soundcloud_token,
 )
 
-SETTINGS_FILE = Path.home() / '.config' / 'ytdl' / 'settings.json'
 
-
-def _load_settings() -> dict:
+def _read_settings_file() -> dict:
     try:
         return json.loads(SETTINGS_FILE.read_text())
     except Exception:
         return {}
 
 
+def _load_settings() -> dict:
+    """Settings for the UI: the file, plus the token wherever it lives."""
+    data = _read_settings_file()
+    token = soundcloud_oauth_token()
+    if token:
+        data['soundcloud_token'] = token
+    else:
+        data.pop('soundcloud_token', None)
+    return data
+
+
 def _save_settings(data: dict) -> None:
+    data = dict(data)
+
+    # The SoundCloud token is a credential: keep it in the macOS Keychain,
+    # not the plaintext file. store_soundcloud_token returns False off-mac,
+    # where the file remains the only store.
+    stored_in_keychain = False
+    if 'soundcloud_token' in data:
+        token = str(data.pop('soundcloud_token') or '').strip()
+        stored_in_keychain = store_soundcloud_token(token)
+        if not stored_in_keychain:
+            data['soundcloud_token'] = token
+
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    current = _load_settings()
+    current = _read_settings_file()
     current.update(data)
+    if stored_in_keychain:
+        # Drop any legacy plaintext copy now that the Keychain holds it.
+        current.pop('soundcloud_token', None)
+    elif not str(current.get('soundcloud_token') or '').strip():
+        # Housekeeping: an empty entry is clutter from older versions.
+        current.pop('soundcloud_token', None)
     SETTINGS_FILE.write_text(json.dumps(current))
 
 
@@ -120,13 +151,37 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
             'file': None,
             'filename': None,
             'bpm': None,
+            'quality_note': '',
             'error': None,
         }
 
     try:
+        details: dict = {}
         output_file = download_audio(
-            url, output_dir=output_dir, progress_hook=progress_hook, verbose=False
+            url, output_dir=output_dir, progress_hook=progress_hook,
+            verbose=False, details=details,
         )
+
+        # Downloading as a guest caps SoundCloud at its standard streams.
+        # Say so only when a valid token would have done better — a working
+        # token needs no applause, just the file.
+        quality_note = ''
+        if is_soundcloud(url) and details.get('format_id') != 'download' \
+                and (details.get('abr') or 0) <= 200:
+            kbps = f"{int(details['abr'])} kbps " if details.get('abr') else ''
+            if details.get('sc_token_rejected'):
+                quality_note = (
+                    f'SoundCloud rejected your OAuth token, so this file came from '
+                    f'the standard {kbps}stream. Update the token in Settings to '
+                    'restore full quality.'
+                )
+            elif not soundcloud_oauth_token():
+                quality_note = (
+                    f'Downloaded from SoundCloud\'s standard {kbps}stream — no '
+                    'OAuth token is set. Add yours in Settings for full quality.'
+                )
+        with _lock:
+            _jobs[job_id]['quality_note'] = quality_note
 
         # Detect tempo unless the user typed one. The audio is already on
         # disk, so this costs a fraction of a second and no extra bandwidth.
@@ -185,7 +240,7 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
     except yt_dlp.utils.DownloadError as exc:
         msg = str(exc).lower()
         if 'http error 403' in msg or 'forbidden' in msg:
-            error = forbidden_hint()
+            error = forbidden_hint(url)
         elif 'unavailable' in msg or 'private' in msg:
             error = 'Video is unavailable or private.'
         elif 'unsupported url' in msg or 'not a valid url' in msg:
@@ -222,15 +277,25 @@ def bpm_for_url(url: str):
         if url in _bpm_cache:
             return _bpm_cache[url]
 
-    import shutil
-    import tempfile
+    if is_soundcloud(url):
+        # SoundCloud's progressive MP3 is byte-seekable over plain HTTP, so
+        # ffmpeg decodes the analysis window straight off the stream URL —
+        # no excerpt download at all (and yt-dlp's range downloader returns
+        # an empty file against SoundCloud's HLS streams anyway).
+        stream = progressive_stream_url(url)
+        if not stream:
+            return None  # the post-download pass still tags the full file
+        bpm, _confidence = detect_bpm(stream)
+    else:
+        import shutil
+        import tempfile
 
-    tmp = tempfile.mkdtemp(prefix='ytdl-bpm-')
-    try:
-        path = download_excerpt(url, tmp)
-        bpm, _confidence = detect_bpm(path)
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        tmp = tempfile.mkdtemp(prefix='ytdl-bpm-')
+        try:
+            path = download_excerpt(url, tmp)
+            bpm, _confidence = detect_bpm(path)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     if bpm:
         with _bpm_cache_lock:
@@ -249,26 +314,97 @@ def index():
     return render_template('index.html')
 
 
+def _soundcloud_artwork(thumbnail: str) -> tuple[str, str]:
+    """
+    (thumb, full) cover-art URLs from a sndcdn thumbnail.
+
+    SoundCloud artwork is square cover art — unlike YouTube's 16:9 video
+    frames — so it is worth offering as the tag artwork directly. The size is
+    a suffix on one canonical URL: -large (100px), -t500x500, -original.
+    """
+    sized = re.sub(r'-(large|original|t\d+x\d+)(\.\w+)$', r'-t500x500\2', thumbnail)
+    full = re.sub(r'-(large|original|t\d+x\d+)(\.\w+)$', r'-original\2', thumbnail)
+    return sized, full
+
+
+def info_for_url(url: str) -> dict:
+    """
+    Source metadata for the tag editor; shared by both /info routes.
+
+    Raises yt_dlp.utils.DownloadError for the routes to translate.
+    """
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'noplaylist': True,
+        'extractor_args': EXTRACTOR_ARGS,
+    }
+    apply_soundcloud_auth(ydl_opts, url)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    thumbnail = info.get('thumbnail') or ''
+    artwork_thumb = artwork_full = ''
+    source = 'YouTube'
+    if is_soundcloud(url):
+        source = 'SoundCloud'
+        if 'sndcdn.com' in thumbnail:
+            artwork_thumb, artwork_full = _soundcloud_artwork(thumbnail)
+
+    return {
+        'title': info.get('title', ''),
+        'thumbnail': thumbnail,
+        'uploader': info.get('uploader', ''),
+        # SoundCloud fills these properly; YouTube music videos sometimes do.
+        'artist': (info.get('artist') or '').strip(),
+        'source': source,
+        'artwork_thumb': artwork_thumb,
+        'artwork_full': artwork_full,
+    }
+
+
+_IMPORT_BROWSERS = ('chrome', 'safari', 'firefox', 'brave', 'edge')
+
+
+def import_soundcloud_token(browser: str):
+    """
+    Pull the SoundCloud token from *browser* and save it; shared by both
+    /soundcloud/import routes. Returns (json_payload, http_status).
+    """
+    browser = (browser or '').strip().lower()
+    if browser not in _IMPORT_BROWSERS:
+        return {'error': 'Unsupported browser.'}, 400
+    try:
+        token = soundcloud_token_from_browser(browser)
+    except Exception as exc:
+        hint = str(exc)
+        if browser == 'safari' and ('permission' in hint.lower()
+                                    or 'operation not permitted' in hint.lower()):
+            hint = ('macOS blocked access to Safari\'s cookies. Grant YouTrax '
+                    'Full Disk Access in System Settings, or use Chrome/Firefox.')
+        return {'error': hint}, 500
+    if not token:
+        return {'error': f'No SoundCloud login found in {browser.title()}. '
+                         'Log in at soundcloud.com there, then try again.'}, 404
+    _save_settings({'soundcloud_token': token})
+    return {'ok': True, 'token': token}, 200
+
+
+@app.post('/soundcloud/import')
+def soundcloud_import():
+    data = request.get_json(silent=True) or {}
+    payload, status = import_soundcloud_token(data.get('browser', ''))
+    return jsonify(payload), status
+
+
 @app.get('/info')
 def get_info():
-    """Fetch YouTube video title + thumbnail without downloading."""
+    """Fetch a track's title, artist and artwork without downloading."""
     url = request.args.get('url', '').strip()
     if not url:
         return jsonify(error='URL is required'), 400
     try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'noplaylist': True,
-            'extractor_args': EXTRACTOR_ARGS,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-        return jsonify(
-            title=info.get('title', ''),
-            thumbnail=info.get('thumbnail', ''),
-            uploader=info.get('uploader', ''),
-        )
+        return jsonify(info_for_url(url))
     except yt_dlp.utils.DownloadError as exc:
         msg = str(exc).lower()
         if 'unavailable' in msg or 'private' in msg:
