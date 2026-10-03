@@ -5,6 +5,7 @@ import glob
 import json
 import os
 import re
+import sys
 import threading
 import uuid
 from pathlib import Path
@@ -378,10 +379,17 @@ def import_soundcloud_token(browser: str):
         token = soundcloud_token_from_browser(browser)
     except Exception as exc:
         hint = str(exc)
-        if browser == 'safari' and ('permission' in hint.lower()
-                                    or 'operation not permitted' in hint.lower()):
-            hint = ('macOS blocked access to Safari\'s cookies. Grant YouTrax '
-                    'Full Disk Access in System Settings, or use Chrome/Firefox.')
+        lowered = hint.lower()
+        blocked = ('permission' in lowered
+                   or 'operation not permitted' in lowered
+                   or 'could not find' in lowered)
+        if sys.platform == 'darwin' and blocked:
+            # macOS privacy protection hides browser data from other apps,
+            # which reads as "not found" as often as an outright denial.
+            hint = (f'macOS blocked access to {browser.title()}\'s cookies. '
+                    'Grant YouTrax Full Disk Access (System Settings → '
+                    'Privacy & Security), reopen YouTrax and try again — '
+                    'or paste the token manually below.')
         return {'error': hint}, 500
     if not token:
         return {'error': f'No SoundCloud login found in {browser.title()}. '
