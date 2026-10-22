@@ -9,6 +9,14 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-22
+
+### Fixed
+- On smaller screens the Download MP3 button could be cut off below the window with no way to reach it. The window now opens sized to fit your screen (taskbar and display scaling included), content scrolls when it doesn't fit, and Download MP3 stays pinned to the bottom of the window
+
+### Changed
+- On shorter screens the tag editor switches to a more compact layout, with Year, BPM and Genre on one row, so it fits laptop displays without scrolling
+
 ## [1.3.0] - 2026-10-03
 
 ### Added

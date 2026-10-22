@@ -185,11 +185,16 @@
     .tab-close:hover { background: var(--border); color: var(--text); }
 
     /* ── Content area ── */
+    /* The card clips, so this is the scroll container: without
+       min-height:0 a flex column never shrinks below its content, and
+       anything past the window's bottom edge would be unreachable. */
     .content {
       padding: 24px;
       flex: 1;
       display: flex;
       flex-direction: column;
+      min-height: 0;
+      overflow-y: auto;
     }
 
     /* ── Empty state ── */
@@ -402,6 +407,13 @@
       flex: 1 1 0;
       min-width: 0;
     }
+    /* Year | BPM | Genre: Genre wraps to its own line unless the compact
+       layout below pulls all three onto one row. */
+    .tag-meta-row { flex-wrap: wrap; row-gap: 0; }
+    .tag-meta-row > .field-genre { flex: 1 1 100%; }
+    .genre-wrap { display: flex; gap: 6px; align-items: center; }
+    #tag-genre { flex: 1; min-width: 0; }
+    #tag-genre-input { flex: 2; min-width: 0; }
 
     /* ── Tags two-column layout ── */
     .tags-layout {
@@ -419,6 +431,24 @@
       display: flex;
       flex-direction: column;
     }
+    .field-last { margin-bottom: 14px; }
+
+    /* Pins Download MP3 to the bottom of the scroll area when the window
+       is too short for the form; inert when everything fits. The opaque
+       background hides fields scrolling underneath, and reaches down
+       through .content's bottom padding (the negative offset, padding and
+       margin cancel out, so the unpinned layout is unchanged). */
+    .download-bar {
+      --bar-reach: 24px;
+      position: sticky;
+      bottom: calc(-1 * var(--bar-reach));
+      margin-top: auto;
+      margin-bottom: calc(-1 * var(--bar-reach));
+      padding: 10px 0 var(--bar-reach);
+      background: var(--surface);
+      z-index: 2;
+    }
+    .download-bar .btn-primary { margin-top: 0; }
 
     /* ── Artwork ── */
     .artwork-preview {
@@ -567,6 +597,7 @@
       transform: translateX(100%);
       transition: transform .28s cubic-bezier(.4,0,.2,1);
       z-index: 10;
+      overflow-y: auto;
     }
     .settings-drawer.open { transform: translateX(0); }
     .drawer-header {
@@ -762,6 +793,43 @@
     .modal-body ul { margin: 0 0 4px 18px; padding: 0; }
     .modal-body li { margin: 3px 0; }
     .modal-body p { margin: 8px 0; color: var(--muted); }
+
+    /* ── Compact layout for short windows ──
+       The full tag editor needs ~830px of viewport. Below 860px, tighten
+       spacing and put Year/BPM/Genre on one row so it fits laptop screens;
+       taller windows are untouched. */
+    @media (max-height: 860px) {
+      body { padding: 12px; }
+      .top-bar { padding: 12px 20px; }
+      .top-bar-header { margin-bottom: 10px; }
+      .url-row input { padding: 8px 12px; }
+      .fetch-btn { height: 36px; }
+      .tab { padding: 7px 14px; }
+      .content { padding: 16px 20px; }
+      .download-bar { --bar-reach: 16px; }
+      .settings-drawer { padding: 16px 20px; }
+      .drawer-header { margin-bottom: 16px; }
+      .source-title-bar { margin-bottom: 12px; padding: 6px 12px; }
+      .tags-layout { gap: 20px; }
+      label { margin-bottom: 4px; }
+      .field { margin-bottom: 10px; }
+      .field-last { margin-bottom: 10px; }
+      input[type="text"], input[type="password"], select {
+        padding-top: 7px;
+        padding-bottom: 7px;
+      }
+      .btn-primary { height: 38px; }
+
+      .tag-meta-row { flex-wrap: nowrap; }
+      .tag-meta-row > .field-genre { flex: 1.6 1 0; }
+      /* Too narrow for select + custom input side by side: stack them. */
+      .genre-wrap { flex-wrap: wrap; }
+      #tag-genre-input { flex-basis: 100%; }
+
+      /* The square artwork tracks column width; cap it by height so the
+         left column never becomes the taller one. */
+      .artwork-preview, .artwork-btn-row { width: min(100%, 36vh); }
+    }
   </style>
 </head>
 <body>
@@ -1467,7 +1535,7 @@
       const genreOptions = genres.map(g =>
         `<option value="${g}"${genreSelectVal === g ? ' selected' : ''}>${g}</option>`
       ).join('');
-      const genreInputStyle = isCustomGenre ? 'flex:2;min-width:0' : 'flex:2;min-width:0;display:none';
+      const genreInputStyle = isCustomGenre ? '' : 'display:none';
 
       return `
         <div class="tab-screen active" id="screen-tags">
@@ -1515,7 +1583,7 @@
                 <label for="tag-album">Album</label>
                 <input id="tag-album" type="text" value="${escHtml(tab.album)}" />
               </div>
-              <div class="field-row">
+              <div class="field-row tag-meta-row">
                 <div class="field">
                   <label for="tag-year">Year</label>
                   <input id="tag-year" type="text" value="${escHtml(tab.year)}" maxlength="4" />
@@ -1530,19 +1598,21 @@
                     </div>
                   </div>
                 </div>
-              </div>
-              <div class="field">
-                <label for="tag-genre">Genre</label>
-                <div style="display:flex;gap:6px;align-items:center">
-                  <select id="tag-genre" style="flex:1;min-width:0">${genreOptions}</select>
-                  <input id="tag-genre-input" type="text" value="${escHtml(isCustomGenre ? tab.genre : '')}" placeholder="Custom genre…" style="${genreInputStyle}" />
+                <div class="field field-genre">
+                  <label for="tag-genre">Genre</label>
+                  <div class="genre-wrap">
+                    <select id="tag-genre">${genreOptions}</select>
+                    <input id="tag-genre-input" type="text" value="${escHtml(isCustomGenre ? tab.genre : '')}" placeholder="Custom genre…" style="${genreInputStyle}" />
+                  </div>
                 </div>
               </div>
-              <div class="field" style="margin-bottom:24px">
+              <div class="field field-last">
                 <label for="tag-comments">Comments</label>
                 <input id="tag-comments" type="text" value="${escHtml(tab.comments)}" placeholder="Optional" />
               </div>
-              <button class="btn-primary" id="download-btn" type="button" style="margin-top:auto">Download MP3</button>
+              <div class="download-bar">
+                <button class="btn-primary" id="download-btn" type="button">Download MP3</button>
+              </div>
             </div>
 
           </div>

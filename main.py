@@ -48,6 +48,57 @@ _unsaved_tab_count = 0
 
 PORT = 5173
 
+# Whole-window sizes in 96-DPI units: pywebview assigns them to Form.Size
+# (title bar included) and WinForms DPI autoscaling enlarges them on
+# high-DPI displays.
+DEFAULT_WINDOW_SIZE = (1250, 920)
+MIN_WINDOW_SIZE = (720, 480)
+_SCREEN_MARGIN = 16
+
+
+def fit_window_size(usable_width: float, usable_height: float) -> tuple[int, int]:
+    """
+    The default window size, shrunk to fit a screen's usable area.
+
+    A window taller than the screen puts its bottom edge — and the resize
+    handle — out of reach, so it is clamped to the area left after the
+    taskbar, keeping a small margin. Never below the minimum size.
+    """
+    width = min(DEFAULT_WINDOW_SIZE[0], int(usable_width) - 2 * _SCREEN_MARGIN)
+    height = min(DEFAULT_WINDOW_SIZE[1], int(usable_height) - 2 * _SCREEN_MARGIN)
+    return max(width, MIN_WINDOW_SIZE[0]), max(height, MIN_WINDOW_SIZE[1])
+
+
+def initial_window_size() -> tuple[int, int]:
+    """
+    fit_window_size() for the primary monitor's work area (taskbar
+    excluded), converted to 96-DPI units; the default if the query fails.
+
+    The work area and LOGPIXELSY are both reported in the process's current
+    DPI-awareness context, so their ratio is right whether or not the
+    process has been made DPI aware yet.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+        rect = wintypes.RECT()
+        SPI_GETWORKAREA, LOGPIXELSY = 0x0030, 90
+        if not user32.SystemParametersInfoW(SPI_GETWORKAREA, 0, ctypes.byref(rect), 0):
+            return DEFAULT_WINDOW_SIZE
+        hdc = user32.GetDC(0)
+        try:
+            dpi = gdi32.GetDeviceCaps(hdc, LOGPIXELSY) or 96
+        finally:
+            user32.ReleaseDC(0, hdc)
+        scale = dpi / 96
+        return fit_window_size(
+            (rect.right - rect.left) / scale, (rect.bottom - rect.top) / scale
+        )
+    except Exception:
+        return DEFAULT_WINDOW_SIZE
+
 # ── ytmp3:// URL scheme handler ──────────────────────────────────────────────
 #
 # Windows delivers a protocol click by launching the registered exe with the
@@ -371,14 +422,15 @@ if __name__ == '__main__':
     t.start()
 
     # Create a native window with the JS API exposed
+    width, height = initial_window_size()
     _window = webview.create_window(
         'YouTrax',
         f'http://localhost:{PORT}',
         js_api=Api(),
-        width=1250,
-        height=920,
+        width=width,
+        height=height,
         resizable=True,
-        min_size=(800, 700),
+        min_size=MIN_WINDOW_SIZE,
     )
 
     def _on_loaded():
