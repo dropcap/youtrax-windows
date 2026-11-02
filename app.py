@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """app.py — Flask web UI for ytdl.py."""
 
-import glob
 import json
 import os
 import re
@@ -12,6 +11,7 @@ from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request, send_file
 import app_updater
+import loudness
 from version import get_changelog, get_version
 from tagger import apply_tags
 from bpm import detect_bpm
@@ -33,6 +33,13 @@ def _read_settings_file() -> dict:
 def _load_settings() -> dict:
     """Settings for the UI: the file, plus the token wherever it lives."""
     data = _read_settings_file()
+    # Loudness values as downloads will use them (defaults filled, clamped).
+    norm = loudness.Settings.from_saved(data)
+    data.update(
+        normalize=norm.enabled, normalize_target=norm.target_lufs,
+        normalize_ceiling=norm.ceiling_dbtp, normalize_max_limit=norm.max_limit_db,
+        normalize_pure_gain=norm.pure_gain,
+    )
     token = soundcloud_oauth_token()
     if token:
         data['soundcloud_token'] = token
@@ -75,6 +82,9 @@ from ytdl import download_audio
 
 app = Flask(__name__)
 
+import file_normalizer  # noqa: E402 (imports ytdl, which needs yt_dlp checked above)
+app.register_blueprint(file_normalizer.bp)
+
 # job_id -> job state dict
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
@@ -90,38 +100,12 @@ def reveal_in_explorer(path: str) -> None:
     subprocess.run(['explorer', '/select,', os.path.normpath(path)], check=False)
 
 
-def find_platinum_notes() -> str | None:
-    """Locate the Platinum Notes executable, wherever it was installed."""
-    roots = [
-        os.environ.get('ProgramFiles', r'C:\Program Files'),
-        os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
-    ]
-    for root in roots:
-        matches = sorted(
-            glob.glob(os.path.join(root, 'Platinum Notes*', '*.exe')),
-            reverse=True,
-        )
-        exes = [m for m in matches if 'unins' not in os.path.basename(m).lower()]
-        if exes:
-            return exes[0]
-    return None
-
-
-def open_in_platinum_notes(path: str) -> bool:
-    """Open *path* in Platinum Notes; returns False when it isn't installed."""
-    import subprocess
-    exe = find_platinum_notes()
-    if not exe:
-        return False
-    subprocess.Popen([exe, os.path.normpath(path)], close_fds=True)
-    return True
-
-
 # ---------------------------------------------------------------------------
 # Background download worker
 # ---------------------------------------------------------------------------
 
-def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
+def _run_download(job_id: str, url: str, output_dir: str, tags: dict,
+                  normalize: 'loudness.Settings | None' = None) -> None:
     def progress_hook(d: dict) -> None:
         with _lock:
             job = _jobs[job_id]
@@ -140,6 +124,8 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
                 )
             elif d['status'] == 'finished':
                 job['status'] = 'processing'
+            elif d['status'] == 'normalizing':
+                job['status'] = 'normalizing'
 
     with _lock:
         _jobs[job_id] = {
@@ -153,6 +139,7 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
             'filename': None,
             'bpm': None,
             'quality_note': '',
+            'loudness': None,
             'error': None,
         }
 
@@ -160,8 +147,14 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict) -> None:
         details: dict = {}
         output_file = download_audio(
             url, output_dir=output_dir, progress_hook=progress_hook,
-            verbose=False, details=details,
+            verbose=False, details=details, normalize=normalize,
         )
+        result = details.get('loudness')
+        if result:
+            with _lock:
+                _jobs[job_id]['loudness'] = result
+            if 'error' not in result:
+                tags['loudness_target'] = result['target']
 
         # Downloading as a guest caps SoundCloud at its standard streams.
         # Say so only when a valid token would have done better — a working
@@ -450,9 +443,13 @@ def start_download():
     if not url:
         return jsonify(error='URL is required'), 400
 
+    # Loudness settings are read once per download: changing them in the
+    # drawer affects the next download, never one already in progress.
+    normalize = loudness.Settings.from_saved(_read_settings_file())
+
     job_id = str(uuid.uuid4())
     threading.Thread(
-        target=_run_download, args=(job_id, url, output_dir, tags), daemon=True
+        target=_run_download, args=(job_id, url, output_dir, tags, normalize), daemon=True
     ).start()
     return jsonify(job_id=job_id)
 
@@ -570,18 +567,6 @@ def reveal_file(job_id: str):
     if not job or job['status'] != 'done' or not job.get('file'):
         return jsonify(error='File not ready'), 404
     reveal_in_explorer(job['file'])
-    return jsonify(ok=True)
-
-
-@app.get('/platinum/<job_id>')
-def open_in_platinum(job_id: str):
-    """Open the downloaded file in Platinum Notes for audio enhancement."""
-    with _lock:
-        job = _jobs.get(job_id)
-    if not job or job['status'] != 'done' or not job.get('file'):
-        return jsonify(error='File not ready'), 404
-    if not open_in_platinum_notes(job['file']):
-        return jsonify(error='Platinum Notes is not installed'), 404
     return jsonify(ok=True)
 
 

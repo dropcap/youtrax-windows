@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>YouTrax</title>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" />
   <style>
     /* Lucide icon baseline sizing */
     [data-lucide] { display: inline-block; vertical-align: middle; }
@@ -217,6 +219,12 @@
     .empty-state .empty-icon { font-size: 2rem; margin-bottom: 10px; opacity: .5; }
     .empty-state .empty-title { font-size: .95rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
     .empty-state .empty-sub { font-size: .8rem; }
+    .empty-state .empty-alt { font-size: .78rem; margin-top: 18px; }
+    .empty-state .empty-alt button {
+      width: auto; background: none; border: none; padding: 0; font: inherit;
+      color: var(--accent); cursor: pointer;
+    }
+    .empty-state .empty-alt button:hover { color: var(--accent-h); text-decoration: underline; }
 
     /* ── Form elements ── */
     label {
@@ -634,6 +642,116 @@
     [data-theme="light"] .source-title-bar { background: var(--input-bg); }
     .settings-hint { font-size: .73rem; color: var(--muted); margin-top: 7px; }
 
+    /* ── Normalize Files panel ── */
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+
+    /* ── Download | Normalize mode switch ── */
+    .mode-switch { display: flex; padding: 3px; gap: 2px; border-radius: 9px; background: var(--bg); border: 1px solid var(--border); }
+    .mode-switch button {
+      width: auto; display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+      border: none; border-radius: 7px; background: transparent; color: var(--muted);
+      font-size: .82rem; font-weight: 600; cursor: pointer; transition: color .15s, background .15s;
+    }
+    .mode-switch button:hover { color: var(--text); }
+    .mode-switch button.on { background: var(--border); color: var(--text); }
+    .mode-count {
+      font-size: .68rem; font-weight: 700; padding: 1px 6px; border-radius: 999px;
+      background: var(--accent); color: #fff; font-variant-numeric: tabular-nums;
+    }
+    .mode-count:empty { display: none; }
+    /* Download mode shows the URL bar, track tabs and tag editor; Normalize
+       mode swaps all three for the Normalize view. */
+    .norm-view { display: none; }
+    .card.mode-normalize .url-row,
+    .card.mode-normalize .tab-bar,
+    .card.mode-normalize #content { display: none !important; }
+    .card.mode-normalize .top-bar-header { margin-bottom: 0; }
+    .card.mode-normalize .norm-view { display: flex; }
+    .norm-view {
+      flex-direction: column; flex: 1; min-height: 0; padding: 20px 24px 16px;
+    }
+    .norm-view .norm-list { min-height: 60px; }
+    .norm-panel { padding-bottom: 16px; }
+    .norm-view > :not(.norm-list) { flex-shrink: 0; }   /* only the track list scrolls */
+    .norm-summary {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      font-size: .8rem; color: var(--muted); margin-bottom: 12px; font-variant-numeric: tabular-nums;
+    }
+    .norm-summary b { color: var(--text); font-weight: 600; }
+    .norm-drop {
+      border: 2px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center;
+      color: var(--muted); font-size: .85rem; transition: border-color .2s, background .2s;
+    }
+    .norm-drop.drag-active { border-color: var(--accent); background: rgba(108,99,255,.06); }
+    .norm-drop .folder-row { justify-content: center; margin-top: 10px; }
+    /* Once tracks are listed, the drop zone shrinks to its buttons to give the list room. */
+    .norm-drop.compact { padding: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .norm-drop.compact .folder-row { margin-top: 0; }
+    .norm-drop .norm-drop-text-short { display: none; }
+    .norm-drop.compact .norm-drop-text { display: none; }
+    .norm-drop.compact .norm-drop-text-short { display: inline; font-size: .78rem; }
+    .norm-list { flex: 1; min-height: 80px; overflow-y: auto; margin: 12px 0; }
+    .norm-row {
+      display: grid; grid-template-columns: minmax(0,1fr) auto auto 22px; gap: 10px; align-items: center;
+      padding: 8px 2px; border-bottom: 1px solid var(--border); font-size: .82rem;
+    }
+    .norm-name { min-width: 0; }
+    .norm-name div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .norm-name small { color: var(--muted); font-size: .72rem; }
+    .norm-lufs { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; text-align: right; }
+    .norm-lufs b { color: var(--text); font-weight: 600; }
+    .norm-tag {
+      font-size: .72rem; padding: 3px 9px; border-radius: 999px; background: var(--border);
+      color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums;
+    }
+    .norm-tag.up { color: var(--success); } .norm-tag.down { color: #6aa8ff; }
+    .norm-tag.lim { color: #e0a63a; } .norm-tag.err { color: var(--error); }
+    .norm-tag.done { background: rgba(76,175,130,.14); color: var(--success); }
+    .norm-x { background: none; border: none; color: var(--muted); cursor: pointer; padding: 2px; width: auto; }
+    .norm-x:hover { color: var(--text); }
+    .norm-empty { text-align: center; color: var(--muted); font-size: .8rem; padding: 18px 0; }
+    .norm-out { margin-bottom: 12px; }
+    .norm-out-head { display: flex; align-items: center; gap: 6px; }
+    .norm-out-head select { flex: 1; margin-left: 6px; padding-top: 7px; padding-bottom: 7px; font-size: .85rem; }
+    .norm-out-head label { margin: 0; }
+    .norm-dir { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+    .norm-dir-label { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+    .norm-dir .folder-path { padding: 6px 10px; font-size: .78rem; }
+    /* Info tooltip: hover or keyboard focus shows the bubble. */
+    .info-tip { position: relative; display: inline-flex; color: var(--muted); cursor: help; outline: none; }
+    .info-tip:hover, .info-tip:focus-visible { color: var(--text); }
+    .info-tip .tip {
+      position: absolute; left: -10px; bottom: calc(100% + 8px);   /* opens rightward: the icon sits near the panel's left edge */
+      width: 280px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); box-shadow: 0 8px 24px rgba(0,0,0,.35); color: var(--text);
+      font-size: .75rem; line-height: 1.45; text-transform: none; letter-spacing: 0; font-weight: 400;
+      opacity: 0; visibility: hidden; transition: opacity .12s; z-index: 20; pointer-events: none;
+    }
+    .info-tip .tip b { font-weight: 600; }
+    .info-tip .tip p { margin: 0; }
+    .info-tip .tip p + p { margin-top: 6px; }
+    .info-tip:hover .tip, .info-tip:focus-visible .tip { opacity: 1; visibility: visible; }
+    .norm-dir .browse-btn { padding: 6px 10px; font-size: .76rem; }
+    .norm-dir .norm-x { flex-shrink: 0; }
+    .norm-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+
+    /* ── Loudness (settings drawer) ── */
+    .loud-controls { margin-top: 12px; transition: opacity .15s; }
+    .loud-controls.off { opacity: .45; pointer-events: none; }
+    .loud-num {
+      width: 74px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--input-bg); color: var(--text); font-size: .88rem;
+      font-variant-numeric: tabular-nums; outline: none;
+    }
+    .loud-num:focus { border-color: var(--accent); }
+    .loud-unit { font-size: .75rem; color: var(--muted); margin-left: 6px; }
+    .loud-badge {
+      display: inline-flex; gap: 6px; align-items: center; margin-top: 10px; padding: 4px 10px;
+      border-radius: 999px; background: var(--border); font-size: .75rem; color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .loud-badge b { color: var(--success); font-weight: 600; }
+
     /* ── Theme toggle ── */
     .theme-row {
       display: flex;
@@ -794,6 +912,377 @@
     .modal-body li { margin: 3px 0; }
     .modal-body p { margin: 8px 0; color: var(--muted); }
 
+    /* ══ Console finish ══
+       The Refined layout dressed as studio hardware: primary actions are lit
+       violet keys, secondary ones raised dark keys, and fields, lists and
+       slots sit in recessed wells. Status reads from small LED dots. These
+       rules override the base styles above; the compact layout below still
+       adjusts spacing on short windows. */
+    :root {
+      --bg:          #0B0A10;
+      --surface:     #16141C;
+      --border:      #2A2734;
+      --line2:       #36323F;
+      --accent:      #6E4EFA;
+      --accent-h:    #8467FF;
+      --accent-text: #B8A9FF;
+      --text:        #EEEBF6;
+      --muted:       #A49EB8;
+      --faint:       #7D7791;
+      --success:     #5FCB97;
+      --error:       #F07A86;
+      --warn:        #F0B44C;
+      --input-bg:    #0D0C12;
+      --card-bg:     linear-gradient(180deg, #1A1821 0, #14121A 100%);
+      --head-bg:     linear-gradient(180deg, #1E1B27, #17151E);
+      --well:        #0D0C12;
+      --well-shadow: inset 0 2px 4px rgba(0,0,0,.6);
+      --key-bg:      linear-gradient(180deg, #26232F, #1D1A25);
+      --key-bg-h:    linear-gradient(180deg, #2C2936, #221F2B);
+      --key-border:  #38343F;
+      --key-shadow:  0 1px 2px rgba(0,0,0,.45);
+      --lit:         linear-gradient(180deg, #7155F8, #6447EE);
+      --lit-h:       linear-gradient(180deg, #7C62FA, #6D51F2);
+      --lit-shadow:  0 1px 2px rgba(0,0,0,.5);
+      --led-off:     #2C2836;
+      --ring:        0 0 0 3px rgba(110,78,250,.3);
+    }
+    [data-theme="light"] {
+      --bg:          #E9E7F0;
+      --surface:     #F6F5FA;
+      --border:      #D8D4E2;
+      --line2:       #C9C4D6;
+      --accent-text: #5B3DE0;
+      --text:        #1C1828;
+      --muted:       #5F5873;
+      --faint:       #7A738D;
+      --input-bg:    #FFFFFF;
+      --card-bg:     linear-gradient(180deg, #FAF9FD 0, #F2F0F7 100%);
+      --head-bg:     linear-gradient(180deg, #FFFFFF, #F4F2F9);
+      --well:        #EFEDF5;
+      --well-shadow: inset 0 1px 3px rgba(40,30,80,.14);
+      --key-bg:      linear-gradient(180deg, #FFFFFF, #F1EFF6);
+      --key-bg-h:    linear-gradient(180deg, #FFFFFF, #E9E6F1);
+      --key-border:  #D3CEDF;
+      --key-shadow:  0 1px 2px rgba(40,30,80,.14);
+      --led-off:     #CFCADB;
+    }
+
+    body {
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-variant-numeric: tabular-nums;
+      -webkit-font-smoothing: antialiased;
+      caret-color: var(--accent-text);
+    }
+    ::selection { background: rgba(184,169,255,.32); }
+    .card { background: var(--card-bg); box-shadow: 0 30px 60px -30px rgba(0,0,0,.6); }
+
+    /* Icons: a soft filled body under the stroke on closed shapes. */
+    .lucide circle, .lucide rect { fill: currentColor; fill-opacity: .18; }
+    .icon-sm { stroke-width: 2.2; }
+    .icon-md { stroke-width: 1.9; }
+
+    /* Scrollbars */
+    .content::-webkit-scrollbar, .norm-list::-webkit-scrollbar, .settings-drawer::-webkit-scrollbar, .modal-body::-webkit-scrollbar { width: 12px; }
+    .content::-webkit-scrollbar-thumb, .norm-list::-webkit-scrollbar-thumb, .settings-drawer::-webkit-scrollbar-thumb, .modal-body::-webkit-scrollbar-thumb {
+      background: var(--line2); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box;
+    }
+
+    /* ── Header ── */
+    .top-bar { background: var(--head-bg); }
+    .logo { gap: 11px; }
+    .logo-icon { width: 32px; height: 32px; }
+    h1 { font-size: 1.15rem; letter-spacing: -.02em; }
+
+    /* Keys */
+    .fetch-btn, .btn-primary, #download-btn {
+      background: var(--lit); box-shadow: var(--lit-shadow); color: #fff;
+      text-transform: uppercase; letter-spacing: .08em; font-size: .8rem; font-weight: 600;
+      border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+    }
+    .fetch-btn:hover:not(:disabled), .btn-primary:hover:not(:disabled), #download-btn:hover:not(:disabled) { background: var(--lit-h); }
+    .fetch-btn:active:not(:disabled), .btn-primary:active:not(:disabled) { box-shadow: inset 0 2px 4px rgba(0,0,0,.3); }
+    .fetch-btn:disabled, .btn-primary:disabled { opacity: .45; box-shadow: none; }
+    .btn-primary { height: 46px; }
+    /* Convert always matches the link field's height. */
+    .fetch-btn { height: auto; align-self: stretch; padding: 0 20px; }
+    .btn-secondary {
+      width: 100%; height: 40px; margin-top: 8px; border-radius: 10px; cursor: pointer;
+      background: var(--key-bg); border: 1px solid var(--key-border); box-shadow: var(--key-shadow);
+      color: var(--text); font: inherit; font-size: .85rem; font-weight: 600; transition: background .15s;
+    }
+    .btn-secondary:hover { background: var(--key-bg-h); }
+    #done-close-btn { display: block; width: auto; min-width: 200px; margin: 4px auto 0; padding: 0 22px; }
+    .browse-btn, .update-btn, .artwork-search-btn, [data-theme="light"] .browse-btn, [data-theme="light"] .update-btn {
+      background: var(--key-bg); border: 1px solid var(--key-border); box-shadow: var(--key-shadow);
+      color: var(--text); border-radius: 8px;
+    }
+    .browse-btn:hover:not(:disabled), .update-btn:hover:not(:disabled), .artwork-search-btn:hover:not(:disabled),
+    [data-theme="light"] .browse-btn:hover:not(:disabled), [data-theme="light"] .update-btn:hover:not(:disabled) {
+      background: var(--key-bg-h); color: var(--text); border-color: var(--key-border);
+    }
+    .update-btn.available, [data-theme="light"] .update-btn.available { background: var(--lit); box-shadow: var(--lit-shadow); border-color: transparent; color: #fff; }
+    .settings-btn {
+      width: 36px; height: 36px; padding: 0; border-radius: 8px; color: var(--muted);
+      background: var(--key-bg); border: 1px solid var(--key-border); box-shadow: var(--key-shadow);
+    }
+    .settings-btn:hover { background: var(--key-bg-h); color: var(--text); }
+    .settings-btn.active { color: var(--accent-text); background: var(--key-bg-h); }
+    .settings-btn .update-dot { top: 5px; right: 5px; width: 7px; height: 7px; background: var(--accent-text); box-shadow: 0 0 6px rgba(184,169,255,.9); }
+    :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+    /* ── Mode switch: a recessed well; the lit mode's icon turns violet ── */
+    .header-actions { gap: 18px; }
+    .mode-switch { background: var(--well); border-color: var(--border); box-shadow: var(--well-shadow); border-radius: 11px; }
+    .mode-switch button {
+      height: 32px; padding: 0 13px; border-radius: 8px; gap: 8px;
+      text-transform: uppercase; letter-spacing: .06em; font-size: .72rem;
+    }
+    .mode-switch button svg { width: 15px; height: 15px; color: var(--faint); transition: color .15s; }
+    .mode-switch button:hover svg { color: var(--muted); }
+    .mode-switch button.on { background: var(--key-bg-h); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.45); }
+    .mode-switch button.on svg { color: var(--accent-text); }
+    .mode-count {
+      font-size: .66rem; font-weight: 600; letter-spacing: 0; padding: 1px 6px; border-radius: 5px;
+      background: var(--well); color: var(--accent-text); box-shadow: inset 0 1px 2px rgba(0,0,0,.6);
+    }
+
+    /* ── Wells: fields, selects, paths ── */
+    .url-row input, input[type="text"], input[type="password"], select, .folder-path, .loud-num, .source-title-bar {
+      background-color: var(--well); border-color: var(--border); box-shadow: var(--well-shadow);
+    }
+    .url-row input { height: 44px; padding: 0 14px; font-size: .95rem; border-radius: 9px; }
+    @media (max-height: 860px) { .url-row input { height: 38px; } }
+    .url-row input:focus, input[type="text"]:focus, input[type="password"]:focus, select:focus, .loud-num:focus {
+      border-color: var(--accent-text); box-shadow: var(--well-shadow), var(--ring);
+    }
+    input::placeholder, .url-row input::placeholder { color: var(--faint); }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A49EB8' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
+    label { font-size: .69rem; letter-spacing: .07em; }
+
+    /* ── Track tabs ── */
+    .tab.active { border-bottom-color: var(--accent-text); }
+    .tab-status.idle    { background: var(--led-off); box-shadow: inset 0 1px 1px rgba(0,0,0,.5); }
+    .tab-status.pending { background: var(--warn); box-shadow: 0 0 6px rgba(240,180,76,.8); }
+    .tab-status.done    { background: var(--success); box-shadow: 0 0 6px rgba(95,203,151,.8); }
+    .tab-status.error   { background: var(--error); box-shadow: 0 0 6px rgba(240,122,134,.8); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      border: 1.5px dashed var(--line2);
+      background: repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 8px, transparent 8px 16px);
+    }
+    .empty-state .empty-icon { opacity: 1; color: var(--accent-text); }
+    .empty-state .empty-alt button, .whats-new-link { color: var(--accent-text); }
+    .empty-state.drag-active, .norm-drop.drag-active { border-color: var(--accent-text); background: rgba(110,78,250,.08); }
+
+    /* ── Tag editor ── */
+    /* Beatport's own mark (TBG Primary Icon, from beatport.com), used as
+       supplied: white on dark, black on light, never recoloured. */
+    .beatport-mark { width: auto; height: 20px; fill: #FFFFFF; }
+    [data-theme="light"] .beatport-mark { fill: #000000; }
+    /* Hover / focus tooltips on the source bar's tool buttons. */
+    .source-title-btn, .title-append-btn { position: relative; }
+    .source-title-btn[data-tip]::after, .title-append-btn[data-tip]::after {
+      content: attr(data-tip); position: absolute; top: calc(100% + 8px); right: 0; z-index: 30;
+      padding: 6px 10px; border-radius: 7px; white-space: nowrap; pointer-events: none;
+      background: var(--key-bg); border: 1px solid var(--key-border); box-shadow: 0 8px 20px rgba(0,0,0,.45);
+      color: var(--text); font-size: .74rem; font-weight: 500; opacity: 0; transform: translateY(-2px);
+      transition: opacity .12s, transform .12s;
+    }
+    .source-title-btn[data-tip]:hover::after, .source-title-btn[data-tip]:focus-visible::after,
+    .title-append-btn[data-tip]:hover::after, .title-append-btn[data-tip]:focus-visible::after { opacity: 1; transform: none; transition-delay: .25s; }
+    .source-title-label { text-transform: none; letter-spacing: 0; font-size: .8rem; font-weight: 500; }
+    .source-title-btn:hover, .title-append-btn:hover { color: var(--accent-text); background: rgba(110,78,250,.14); }
+    .artwork-preview { border: 1.5px dashed var(--line2); background: var(--well); box-shadow: var(--well-shadow); opacity: 1; color: var(--faint); }
+    .artwork-preview.has-art { border: 1px solid var(--border); box-shadow: 0 18px 36px -18px rgba(0,0,0,.9); }
+    .artwork-preview.drag-over { border-color: var(--accent-text); background: rgba(110,78,250,.1); }
+    .artwork-grid-item.selected { border-color: var(--accent-text); }
+    .download-bar { background: transparent; }
+    .download-bar::before {
+      content: ''; position: absolute; inset: 0; z-index: -1;
+      background: linear-gradient(180deg, transparent 0, #15131B 10px);
+    }
+    [data-theme="light"] .download-bar::before { background: linear-gradient(180deg, transparent 0, #F3F1F8 10px); }
+
+    /* ── Progress ── */
+    .bar-wrap { height: 8px; background: var(--well); box-shadow: var(--well-shadow); }
+    .bar { background: var(--lit); }
+    .meta { font-size: .74rem; }
+
+    /* ── Done / error ── */
+    .done-body { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px 0 18px; }
+    .done-art { position: relative; width: 132px; height: 132px; margin-bottom: 18px; }
+    .done-art img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; box-shadow: 0 18px 40px -14px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.08); }
+    .done-check {
+      position: absolute; right: -10px; bottom: -10px; width: 34px; height: 34px; border-radius: 50%;
+      display: grid; place-items: center; background: var(--success); color: #06170E;
+      box-shadow: 0 0 0 4px var(--surface);
+    }
+    .done-check svg { stroke-width: 3; }
+    .done-icon { color: var(--success); margin-bottom: 12px; }
+    .done-title { font-size: 1.1rem; font-weight: 600; letter-spacing: -.01em; margin-bottom: 6px; }
+    .done-file { font-size: .9rem; font-weight: 500; word-break: break-all; margin-bottom: 4px; }
+    .done-dir { font-size: .78rem; color: var(--muted); }
+    .quality-note {
+      display: flex; gap: 7px; align-items: flex-start; margin: 14px auto 0; max-width: 430px; padding: 9px 12px;
+      border-radius: 8px; border: 1px solid rgba(240,180,76,.35); background: rgba(240,180,76,.08);
+      font-size: .78rem; line-height: 1.45; color: var(--warn); text-align: left;
+    }
+    .quality-note svg { flex-shrink: 0; margin-top: 1px; }
+    .loud-badge {
+      gap: 8px; margin-top: 14px; padding: 0 12px; height: 32px; border-radius: 8px;
+      background: var(--well); box-shadow: var(--well-shadow); border: 1px solid var(--border);
+      font-size: .78rem; color: var(--muted);
+    }
+    .loud-badge svg { color: var(--faint); }
+    .loud-badge b { color: var(--text); }
+    .loud-extra { color: var(--muted); }
+    .loud-extra::before { content: '·'; margin-right: 8px; }
+
+    /* ── Settings drawer ── */
+    .settings-drawer { background: var(--card-bg); }
+    .toggle-switch { width: 42px; height: 24px; }
+    .toggle-track { border-radius: 999px; background: var(--well); box-shadow: inset 0 2px 4px rgba(0,0,0,.7); }
+    .toggle-track::after {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: linear-gradient(180deg, #F4F1FF, #B7B0CC); box-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    .toggle-switch input:checked + .toggle-track {
+      background: linear-gradient(180deg, #5B3DE8, #7558FF);
+      box-shadow: inset 0 1px 3px rgba(0,0,0,.35);
+    }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); }
+    .toggle-switch input:focus-visible + .toggle-track { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+    [data-theme="light"] .toggle-track { box-shadow: inset 0 1px 3px rgba(40,30,80,.25); }
+
+    .loud-num { width: 84px; font-family: inherit; font-size: .85rem; font-weight: 400; color: var(--text); text-align: right; }
+    input[type="checkbox"] { accent-color: var(--accent); }
+
+    /* Settings: labelled groups of rows, each row's description sits under
+       its name and its control on the right. */
+    .drawer-header { margin-bottom: 8px; }
+    .set-section { margin-top: 20px; }
+    .set-caption { font-size: .69rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px 2px; }
+    .set-group { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.015); }
+    [data-theme="light"] .set-group { background: #fff; }
+    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 16px; }
+    .set-group > .set-row + .set-row, .loud-controls > .set-row, .set-group > .loud-controls { border-top: 1px solid var(--border); }
+    .loud-controls > .set-row:first-child { border-top: 0; }
+    .set-row.stack { flex-direction: column; align-items: stretch; gap: 10px; }
+    .set-text { flex: 1; min-width: 0; }
+    .set-name { font-size: .88rem; font-weight: 500; color: var(--text); }
+    .set-desc { font-size: .76rem; line-height: 1.45; color: var(--muted); margin-top: 3px; }
+    .set-row.stack .set-desc { margin-top: 0; }
+    .set-name + .set-desc { margin-top: 3px; }
+    /* Loudness details sit two to a row so the whole group fits without scrolling. */
+    .loud-controls { display: grid; grid-template-columns: 1fr 1fr; }
+    .loud-controls > .set-row { flex-wrap: wrap; gap: 10px 16px; border-top: 0; }
+    .loud-controls > .set-row .set-text { flex: 1 1 150px; }
+    .loud-controls > .set-row:nth-child(odd) { border-right: 1px solid var(--border); }
+    .loud-controls > .set-row:nth-child(n+3) { border-top: 1px solid var(--border); }
+    .loud-controls .loud-field { flex-wrap: wrap; }
+    .loud-controls select.loud-select { min-width: 0; width: auto; max-width: 100%; }
+    /* Narrow windows: one setting per row, control still on the right. */
+    @media (max-width: 860px) {
+      .loud-controls { grid-template-columns: 1fr; }
+      .loud-controls > .set-row:nth-child(odd) { border-right: 0; }
+      .loud-controls > .set-row:nth-child(n+2) { border-top: 1px solid var(--border); }
+      .loud-controls > .set-row { flex-wrap: nowrap; }
+    }
+    .loud-controls .loud-field { justify-content: flex-end; }
+    .set-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: .76rem; color: var(--muted); }
+    .toggle-switch { margin: 0; }
+    .loud-controls { margin-top: 0; }
+    .loud-field { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .loud-field .loud-unit { margin-left: 0; width: 34px; }
+    select.loud-select { width: auto; min-width: 230px; height: 36px; padding-top: 0; padding-bottom: 0; font-size: .85rem; }
+    .loud-custom { display: none; align-items: center; gap: 8px; }
+    .loud-custom.show { display: inline-flex; }
+    .loud-num { height: 36px; }
+    /* Number + unit read as one field: the unit sits inside the well. */
+    .unit-field { height: 36px; gap: 0 !important; padding-right: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--well); box-shadow: var(--well-shadow); }
+    .unit-field:focus-within { border-color: var(--accent-text); box-shadow: var(--well-shadow), var(--ring); }
+    .unit-field .loud-num, .unit-field .loud-num:focus { width: 64px; height: 34px; border: 0; background: transparent; box-shadow: none; padding: 0 6px 0 10px; }
+    .unit-field .loud-unit { width: auto !important; margin: 0; font-size: .78rem; color: var(--muted); }
+    .loud-custom.unit-field:not(.show) { display: none; }
+    .sc-browsers { flex-wrap: wrap; }
+    .sc-token-block { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+    .sc-token-label { margin: 0; text-transform: none; letter-spacing: 0; font-size: .82rem; font-weight: 500; color: var(--text); }
+    .sc-token-row { display: flex; gap: 8px; }
+    .sc-token-row input { flex: 1; min-width: 0; }
+    .sc-token-block .set-desc b { color: var(--text); font-weight: 500; }
+    .about-group { margin-top: 4px; }
+    .about-group .set-desc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .about-group .update-status:empty { display: none; }
+    .about-group .whats-new-link { font-size: .76rem; padding: 0; }
+    .about-group .update-btn { flex-shrink: 0; }
+
+    /* ── Normalize view ── */
+    .norm-summary b, .norm-lufs b { font-weight: 600; }
+    .norm-drop {
+      border: 1.5px dashed var(--line2);
+      background: repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 8px, transparent 8px 16px);
+    }
+    .norm-list { background: var(--well); box-shadow: inset 0 2px 8px rgba(0,0,0,.5); border: 1px solid var(--border); border-radius: 10px; }
+    [data-theme="light"] .norm-list { box-shadow: var(--well-shadow); }
+    .norm-row { padding: 9px 10px 9px 14px; border-bottom-color: rgba(255,255,255,.04); font-size: .85rem; }
+    [data-theme="light"] .norm-row { border-bottom-color: var(--border); }
+    .norm-row:nth-child(odd) { background: rgba(255,255,255,.012); }
+    .norm-name div { font-weight: 500; }
+    .norm-row { grid-template-columns: minmax(0,1fr) 92px 168px 26px; }
+    .norm-row .norm-tag { justify-self: start; }
+    .norm-lim { color: var(--muted); font-weight: 400; }
+    .norm-tag {
+      display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 5px;
+      background: #0B0A0F; color: #D9D3E8; box-shadow: inset 0 1px 2px rgba(0,0,0,.7); font-size: .74rem; font-weight: 500;
+    }
+    [data-theme="light"] .norm-tag { background: #E4E1EC; color: var(--text); box-shadow: inset 0 1px 2px rgba(40,30,80,.15); }
+    .norm-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--led-off); flex-shrink: 0; }
+    .norm-tag.up, .norm-tag.down { color: var(--text); }
+    .norm-tag.up::before   { background: #FFC46B; box-shadow: 0 0 6px rgba(255,196,107,.7); }
+    .norm-tag.down::before { background: #8FB3FF; box-shadow: 0 0 6px rgba(143,179,255,.7); }
+    .norm-tag.lim { color: var(--warn); }
+    .norm-tag.lim::before  { background: var(--warn); box-shadow: 0 0 6px rgba(240,180,76,.8); }
+    .norm-tag.err { color: var(--error); }
+    .norm-tag.err::before  { background: var(--error); box-shadow: 0 0 6px rgba(240,122,134,.8); }
+    .norm-tag.done { background: #0B0A0F; color: #7DE0AE; }
+    [data-theme="light"] .norm-tag.done { background: #E4E1EC; color: #1F8A56; }
+    .norm-tag.done::before { display: none; }
+    .norm-tag.done svg { filter: drop-shadow(0 0 4px rgba(95,203,151,.8)); }
+    .norm-x { border-radius: 6px; width: 26px; height: 26px; display: grid; place-items: center; }
+    .norm-x:hover:not(:disabled) { background: var(--key-bg-h); }
+    .norm-out-head select { height: 36px; }
+    .info-tip .tip {
+      background: var(--key-bg); border-color: var(--key-border); padding: 12px 14px; border-radius: 10px; width: 320px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.55); font-size: .78rem; line-height: 1.5;
+    }
+    #norm-go { margin-top: 2px; }
+    #norm-go.running { opacity: 1; color: #fff; cursor: default; background: var(--lit) 0 0 / var(--p, 0%) 100% no-repeat, #1C1830; box-shadow: inset 0 2px 5px rgba(0,0,0,.6); }
+    [data-theme="light"] #norm-go.running { background: var(--lit) 0 0 / var(--p, 0%) 100% no-repeat, #CFC8EA; }
+    .norm-tag.working { color: var(--accent-text); }
+    .norm-tag.working::before { background: var(--accent-text); box-shadow: 0 0 6px rgba(184,169,255,.8); animation: led-pulse 1s ease-in-out infinite; }
+    @keyframes led-pulse { 50% { opacity: .35; } }
+    .norm-head { position: sticky; top: 0; z-index: 1; padding-top: 7px; padding-bottom: 7px; background: var(--well) !important;
+      font-size: .66rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+    .norm-head span:nth-child(2) { text-align: right; }
+    .norm-summary { justify-content: flex-start; gap: 8px; }
+    .norm-cap { font-size: .66rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; margin-right: 6px; }
+    .norm-summary b { font-size: .95rem; font-weight: 600; }
+    .norm-drop-icon { color: var(--faint); flex-shrink: 0; }
+    .norm-drop:not(.compact) .norm-drop-icon { display: block; margin: 0 auto 8px; }
+    .norm-drop.compact .norm-drop-icon { margin-right: -2px; }
+    .norm-drop.compact .norm-drop-text-short { margin-right: auto; }
+    .tab-check { color: var(--success); filter: drop-shadow(0 0 4px rgba(95,203,151,.6)); }
+    .tab-mini { width: 32px; height: 4px; border-radius: 2px; background: var(--well); box-shadow: inset 0 1px 1px rgba(0,0,0,.6); overflow: hidden; flex-shrink: 0; }
+    .tab-mini i { display: block; height: 100%; background: var(--accent-text); transition: width .3s; }
+
+    /* ── Overlays ── */
+    .drop-overlay { background: rgba(110,78,250,.12); border-color: var(--accent-text); }
+    .drop-overlay-text { color: var(--accent-text); }
+    .toast, .modal { background: var(--key-bg); border-color: var(--key-border); }
+    .modal-header { background: var(--head-bg); border-radius: var(--radius) var(--radius) 0 0; }
+
     /* ── Compact layout for short windows ──
        The full tag editor needs ~830px of viewport. Below 860px, tighten
        spacing and put Year/BPM/Genre on one row so it fits laptop screens;
@@ -803,7 +1292,6 @@
       .top-bar { padding: 12px 20px; }
       .top-bar-header { margin-bottom: 10px; }
       .url-row input { padding: 8px 12px; }
-      .fetch-btn { height: 36px; }
       .tab { padding: 7px 14px; }
       .content { padding: 16px 20px; }
       .download-bar { --bar-reach: 16px; }
@@ -830,6 +1318,22 @@
          left column never becomes the taller one. */
       .artwork-preview, .artwork-btn-row { width: min(100%, 36vh); }
     }
+
+    /* Very short windows (down to 480px): give the Normalize list as many
+       rows as possible while the Normalize button stays in view. */
+    @media (max-height: 600px) {
+      .top-bar { padding: 10px 16px; }
+      .norm-view { padding: 10px 16px 10px; }
+      .norm-summary { margin-bottom: 8px; }
+      .norm-drop.compact { padding: 4px 4px 4px 12px; }
+      .norm-drop .browse-btn { padding: 6px 11px; font-size: .78rem; }
+      .norm-list { margin: 8px 0; }
+      .norm-row { padding-top: 6px; padding-bottom: 6px; }
+      .norm-out { margin-bottom: 8px; }
+      .norm-dir { margin-top: 6px; }
+      .norm-foot { margin-top: 4px; }
+      .btn-primary { height: 40px; }
+    }
   </style>
 </head>
 <body>
@@ -840,27 +1344,31 @@
       <div class="top-bar-header">
         <div class="logo">
           <div class="logo-icon">
-            <svg width="30" height="30" viewBox="-4 -4 32 32" xmlns="http://www.w3.org/2000/svg">
+            <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <defs>
-                <linearGradient id="logo-bg" x1="-4" y1="-4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#8b5cf6"/>
-                  <stop offset="100%" stop-color="#3730a3"/>
+                <linearGradient id="logo-bg" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#8B70FF"/>
+                  <stop offset="100%" stop-color="#5233E8"/>
                 </linearGradient>
               </defs>
-              <rect x="-4" y="-4" width="32" height="32" rx="6.5" fill="url(#logo-bg)"/>
-              <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"
-                    fill="white" fill-opacity="0.14" stroke="white" stroke-opacity="0.52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="7.5" cy="7.5" r="0.8" fill="white" fill-opacity="0.52"/>
-              <line x1="12" y1="5" x2="12" y2="13.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-              <polyline points="8.5,10 12,14 15.5,10" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect width="32" height="32" rx="8" fill="url(#logo-bg)"/>
+                            <path d="M16 8v11M11.5 14.5L16 19l4.5-4.5M10 24h12" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div>
             <h1>YouTrax</h1>
-            <div class="subtitle">320 kbps MP3 downloader - powered by dropcap</div>
+            <div class="subtitle">powered by dropcap</div>
           </div>
         </div>
-        <button class="settings-btn" id="settings-btn" type="button" title="Settings"><i data-lucide="settings" class="icon-md"></i><span class="update-dot"></span></button>
+        <div class="header-actions">
+          <div class="mode-switch" role="tablist" aria-label="Mode">
+            <button type="button" role="tab" id="mode-download" data-mode="download" class="on" aria-selected="true">
+              <i data-lucide="download" class="icon-sm"></i> Download <span class="mode-count" id="mode-download-count"></span></button>
+            <button type="button" role="tab" id="mode-normalize" data-mode="normalize" aria-selected="false">
+              <i data-lucide="audio-lines" class="icon-sm"></i> Normalize <span class="mode-count" id="mode-normalize-count"></span></button>
+          </div>
+          <button class="settings-btn" id="settings-btn" type="button" title="Settings"><i data-lucide="settings" class="icon-md"></i><span class="update-dot"></span></button>
+        </div>
       </div>
       <div class="url-row">
         <input
@@ -882,6 +1390,52 @@
         <div class="empty-icon"><i data-lucide="link-2" class="icon-xl"></i></div>
         <div class="empty-title">Drag a YouTube or SoundCloud URL here</div>
         <div class="empty-sub">or paste a link in the search bar above</div>
+        <div class="empty-alt">Already have the tracks? <button type="button" data-goto-normalize>Normalize files you own</button></div>
+      </div>
+    </div>
+
+    <!-- ── Normalize Files panel ── -->
+    <div class="norm-view" id="norm-panel" role="tabpanel" aria-labelledby="mode-normalize">
+      <div class="norm-summary">
+        <span id="norm-summary"></span>
+        <button class="whats-new-link" id="norm-change" type="button">Change</button>
+      </div>
+      <div class="norm-drop" id="norm-drop">
+        <i data-lucide="hard-drive-download" class="icon-md norm-drop-icon"></i>
+        <span class="norm-drop-text">Drag tracks or folders here to set them to the same loudness as your downloads.</span>
+        <span class="norm-drop-text-short">Drop more tracks here</span>
+        <div class="folder-row">
+          <button class="browse-btn" id="norm-add-files" type="button">Add Tracks…</button>
+          <button class="browse-btn" id="norm-add-folder" type="button">Add Folder…</button>
+        </div>
+      </div>
+      <div class="norm-list" id="norm-list"></div>
+      <div class="norm-out">
+        <div class="norm-out-head">
+          <label for="norm-mode-select">Output</label>
+          <span class="info-tip" tabindex="0" aria-label="About the output options">
+            <i data-lucide="info" class="icon-sm"></i>
+            <span class="tip" role="tooltip">
+              <p><b>Replace originals</b> (recommended, the default) normalizes each track in place, so cue points stay linked in your DJ software. Each original is backed up first, and a track is left unchanged if its timing would shift.</p>
+              <p><b>Save copies</b> writes a normalized copy and leaves the original untouched. Rekordbox and Traktor treat the copy as a new track, without your cue points.</p>
+            </span>
+          </span>
+          <select id="norm-mode-select">
+            <option value="replace">Replace originals (recommended)</option>
+            <option value="copy">Save copies</option>
+          </select>
+        </div>
+        <div class="norm-dir">
+          <span class="norm-dir-label" id="norm-dir-label"></span>
+          <div class="folder-path" id="norm-dir-path"></div>
+          <button class="browse-btn" type="button" id="norm-dir-browse">Browse…</button>
+          <button class="norm-x" type="button" id="norm-dir-reset"><i data-lucide="rotate-ccw" class="icon-sm"></i></button>
+        </div>
+      </div>
+      <button class="btn-primary" id="norm-go" type="button" disabled><i data-lucide="audio-lines" class="icon-md"></i><span>Normalize</span></button>
+      <div class="norm-foot">
+        <span class="settings-hint" id="norm-status" style="margin:0"></span>
+        <button class="whats-new-link" id="norm-clear" type="button">Clear list</button>
       </div>
     </div>
 
@@ -891,61 +1445,139 @@
         <span class="drawer-title">Settings</span>
         <button class="drawer-close" id="drawer-close" type="button"><i data-lucide="x" class="icon-md"></i></button>
       </div>
-      <div class="field">
-        <label>Download folder</label>
-        <div class="folder-row">
-          <div class="folder-path placeholder" id="folder-path">~/Downloads (default)</div>
-          <button class="browse-btn" id="browse-btn" type="button">Browse…</button>
-        </div>
-        <div class="settings-hint">MP3 files are saved here after conversion.</div>
-      </div>
-      <div class="field theme-row">
-        <span class="theme-label">
-          <i data-lucide="sun" class="icon-md"></i> Light mode
-        </span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="theme-toggle" />
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="field theme-row">
-        <span class="theme-label">
-          <i data-lucide="music" class="icon-md"></i> Platinum Notes
-        </span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="platinum-toggle" />
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="settings-hint">Auto-open downloads in Platinum Notes for audio enhancement.</div>
-
-      <div class="field" style="margin-top:20px">
-        <label>SoundCloud account</label>
-        <div class="folder-row">
-          <button class="browse-btn" data-sc-browser="chrome" type="button">Connect via Chrome</button>
-          <button class="browse-btn" data-sc-browser="safari" type="button">Safari</button>
-          <button class="browse-btn" data-sc-browser="edge" type="button">Edge</button>
-          <button class="browse-btn" data-sc-browser="firefox" type="button">Firefox</button>
-        </div>
-        <div class="settings-hint" id="sc-import-status">
-          Connects the SoundCloud account you're logged in with in that browser,
-          unlocking the highest quality your plan allows (256 kbps AAC and
-          original files where available).
-        </div>
-        <input type="password" id="sc-token" placeholder="…or paste your oauth_token cookie value manually"
-               autocomplete="off" spellcheck="false" style="margin-top:9px" />
-      </div>
-
-      <div class="about-section">
-        <div class="about-row">
-          <div class="about-version">YouTrax <span id="app-version"></span></div>
-          <button class="whats-new-link" id="whats-new-btn" type="button">What's New</button>
-        </div>
-        <div class="update-row">
+      <div class="set-group about-group">
+        <div class="set-row">
+          <div class="set-text">
+            <div class="set-name about-version">YouTrax <span id="app-version"></span></div>
+            <div class="set-desc"><span class="update-status" id="update-status"></span><button class="whats-new-link" id="whats-new-btn" type="button">What's New</button></div>
+          </div>
           <button class="update-btn" id="update-btn" type="button">Check for Updates</button>
-          <span class="update-status" id="update-status"></span>
         </div>
       </div>
+
+      <div class="set-section">
+        <div class="set-caption">Appearance</div>
+        <div class="set-group">
+          <div class="set-row">
+            <div class="set-text">
+              <div class="set-name">Theme</div>
+            </div>
+            <select class="loud-select" id="theme-select" aria-label="Theme">
+              <option value="dark">Dark mode</option>
+              <option value="light">Light mode</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-caption">Downloads</div>
+        <div class="set-group">
+          <div class="set-row stack">
+            <div class="set-text">
+              <div class="set-name">Download folder</div>
+              <div class="set-desc">MP3 files are saved here after conversion.</div>
+            </div>
+            <div class="folder-row">
+              <div class="folder-path placeholder" id="folder-path">~/Downloads (default)</div>
+              <button class="browse-btn" id="browse-btn" type="button">Browse…</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-caption">Loudness</div>
+        <div class="set-group">
+          <div class="set-row">
+            <div class="set-text">
+              <div class="set-name">Normalize downloads</div>
+              <div class="set-desc">Every download is set to the same loudness. Loud tracks are turned down; quiet tracks are turned up, with a transparent limiter catching any peaks.</div>
+            </div>
+            <label class="toggle-switch" aria-label="Normalize downloads">
+              <input type="checkbox" id="loud-toggle" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="loud-controls" id="loud-controls">
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">Target loudness</div>
+                <div class="set-desc">Also used by Normalize mode.</div>
+              </div>
+              <div class="loud-field">
+                <select class="loud-select" id="loud-preset" aria-label="Target loudness">
+                  <option value="-8">−8 LUFS</option>
+                  <option value="-10">−10 LUFS</option>
+                  <option value="-11.5">−11.5 LUFS (recommended)</option>
+                  <option value="-14">−14 LUFS</option>
+                  <option value="custom">Custom…</option>
+                </select>
+                <span class="loud-custom unit-field" id="loud-custom"><input type="number" class="loud-num" id="loud-target" min="-18" max="-6" step="0.5" value="-11.5" aria-label="Custom target, LUFS" /><span class="loud-unit">LUFS</span></span>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">True-peak ceiling</div>
+                <div class="set-desc">Peaks never go above this level.</div>
+              </div>
+              <span class="loud-field unit-field"><input type="number" class="loud-num" id="loud-ceiling" min="-3" max="0" step="0.1" value="-1.0" aria-label="True-peak ceiling, dBTP" /><span class="loud-unit">dBTP</span></span>
+            </div>
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">Max limiting on quiet tracks</div>
+                <div class="set-desc">The most a quiet track may be limited to reach the target.</div>
+              </div>
+              <span class="loud-field unit-field"><input type="number" class="loud-num" id="loud-max-limit" min="0" max="8" step="0.5" value="4" aria-label="Max limiting, dB" /><span class="loud-unit">dB</span></span>
+            </div>
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">Pure gain only</div>
+                <div class="set-desc">Never limit: only turn tracks up or down.</div>
+              </div>
+              <label class="toggle-switch" aria-label="Pure gain only">
+                <input type="checkbox" id="loud-pure-gain" />
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+          </div>
+          <div class="set-foot">
+            <span>Changes apply to the next download or Normalize run.</span>
+            <button class="whats-new-link" id="loud-reset" type="button">Reset to defaults</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-caption">SoundCloud account</div>
+        <div class="set-group">
+          <div class="set-row stack">
+            <div class="set-text">
+              <div class="set-desc" id="sc-import-status">
+                Connects the SoundCloud account you're logged in with in that browser,
+                unlocking the highest quality your plan allows (256 kbps AAC and
+                original files where available).
+              </div>
+            </div>
+            <div class="folder-row sc-browsers">
+              <button class="browse-btn" data-sc-browser="chrome" type="button">Connect via Chrome</button>
+              <button class="browse-btn" data-sc-browser="safari" type="button">Safari</button>
+              <button class="browse-btn" data-sc-browser="edge" type="button">Edge</button>
+              <button class="browse-btn" data-sc-browser="firefox" type="button">Firefox</button>
+            </div>
+            <div class="sc-token-block">
+              <label class="sc-token-label" for="sc-token">SoundCloud token</label>
+              <div class="sc-token-row">
+                <input type="password" id="sc-token" placeholder="Not connected yet"
+                       autocomplete="off" spellcheck="false" />
+                <button class="browse-btn" id="sc-token-reveal" type="button" aria-pressed="false">Show</button>
+              </div>
+              <div class="set-desc">Filled in when you connect a browser above. To set it by hand, paste the value of the <b>oauth_token</b> cookie from soundcloud.com.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -1009,7 +1641,17 @@
     const folderPath  = document.getElementById('folder-path');
     const browseBtn   = document.getElementById('browse-btn');
 
-    const platinumToggle = document.getElementById('platinum-toggle');
+
+    const loudToggle     = document.getElementById('loud-toggle');
+    const loudControls   = document.getElementById('loud-controls');
+    const loudTarget     = document.getElementById('loud-target');
+    const loudPreset     = document.getElementById('loud-preset');
+    const loudCustom     = document.getElementById('loud-custom');
+    const loudCeiling    = document.getElementById('loud-ceiling');
+    const loudMaxLimit   = document.getElementById('loud-max-limit');
+    const loudPureGain   = document.getElementById('loud-pure-gain');
+    const LOUD_DEFAULTS  = { normalize: true, normalize_target: -11.5, normalize_ceiling: -1,
+                             normalize_max_limit: 4, normalize_pure_gain: false };
 
     const toast      = document.getElementById('toast');
     const toastIcon  = document.getElementById('toast-icon');
@@ -1029,20 +1671,20 @@
       settingsBtn.classList.remove('active');
     });
 
-    const themeToggle = document.getElementById('theme-toggle');
+    const themeSelect = document.getElementById('theme-select');
 
     function applyTheme(theme) {
       if (theme === 'light') {
         document.documentElement.setAttribute('data-theme', 'light');
-        themeToggle.checked = true;
+        themeSelect.value = 'light';
       } else {
         document.documentElement.removeAttribute('data-theme');
-        themeToggle.checked = false;
+        themeSelect.value = 'dark';
       }
     }
 
-    themeToggle.addEventListener('change', async () => {
-      const theme = themeToggle.checked ? 'light' : 'dark';
+    themeSelect.addEventListener('change', async () => {
+      const theme = themeSelect.value === 'light' ? 'light' : 'dark';
       applyTheme(theme);
       await fetch('/settings', {
         method: 'POST',
@@ -1051,15 +1693,69 @@
       });
     });
 
-    platinumToggle.addEventListener('change', async () => {
-      await fetch('/settings', {
+    /* Loudness: the drawer mirrors DJ Normalizer's settings. Values are
+       clamped here and again on the server, which reads them per download. */
+    function clampNum(el, fallback) {
+      const v = parseFloat(el.value);
+      const lo = parseFloat(el.min), hi = parseFloat(el.max);
+      return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
+    }
+    function applyLoudness(d) {
+      loudToggle.checked   = d.normalize !== false;
+      loudTarget.value     = d.normalize_target;
+      loudPreset.value     = [...loudPreset.options].some(o => parseFloat(o.value) === parseFloat(d.normalize_target)) ? String(parseFloat(d.normalize_target)) : 'custom';
+      loudCeiling.value    = Number(d.normalize_ceiling).toFixed(1);
+      loudMaxLimit.value   = Number(d.normalize_max_limit).toFixed(1);
+      loudPureGain.checked = !!d.normalize_pure_gain;
+      syncLoudness();
+    }
+    function syncLoudness() {
+      loudControls.classList.toggle('off', !loudToggle.checked);
+      loudMaxLimit.disabled = loudPureGain.checked;
+      loudCustom.classList.toggle('show', loudPreset.value === 'custom');
+    }
+    let loudSaveTimer = null;
+    function saveLoudness() {
+      syncLoudness();
+      setTimeout(() => window.onLoudnessSettingsChanged && window.onLoudnessSettingsChanged(), 400);
+      clearTimeout(loudSaveTimer);
+      loudSaveTimer = setTimeout(() => fetch('/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platinum_notes: platinumToggle.checked }),
-      });
+        body: JSON.stringify({
+          normalize:           loudToggle.checked,
+          normalize_target:    clampNum(loudTarget, LOUD_DEFAULTS.normalize_target),
+          normalize_ceiling:   clampNum(loudCeiling, LOUD_DEFAULTS.normalize_ceiling),
+          normalize_max_limit: clampNum(loudMaxLimit, LOUD_DEFAULTS.normalize_max_limit),
+          normalize_pure_gain: loudPureGain.checked,
+        }),
+      }), 250);
+    }
+    loudPreset.addEventListener('change', () => {
+      if (loudPreset.value !== 'custom') loudTarget.value = loudPreset.value;
+      saveLoudness();
+      if (loudPreset.value === 'custom') loudTarget.focus();
+    });
+    loudTarget.addEventListener('input', saveLoudness);
+    [loudToggle, loudCeiling, loudMaxLimit, loudPureGain].forEach(el => el.addEventListener('input', saveLoudness));
+    // Snap typed values back into range once the field is left.
+    [loudTarget, loudCeiling, loudMaxLimit].forEach(el => el.addEventListener('change', () => {
+      el.value = clampNum(el, parseFloat(el.defaultValue));
+      saveLoudness();
+    }));
+    document.getElementById('loud-reset').addEventListener('click', () => {
+      applyLoudness(LOUD_DEFAULTS);
+      saveLoudness();
     });
 
     const scTokenInput = document.getElementById('sc-token');
+    const scTokenReveal = document.getElementById('sc-token-reveal');
+    scTokenReveal.addEventListener('click', () => {
+      const show = scTokenInput.type === 'password';
+      scTokenInput.type = show ? 'text' : 'password';
+      scTokenReveal.textContent = show ? 'Hide' : 'Show';
+      scTokenReveal.setAttribute('aria-pressed', String(show));
+    });
     scTokenInput.addEventListener('change', async () => {
       await fetch('/settings', {
         method: 'POST',
@@ -1114,7 +1810,7 @@
         const data = await res.json();
         if (data.download_dir) applyDir(data.download_dir);
         if (data.theme) applyTheme(data.theme);
-        platinumToggle.checked = !!data.platinum_notes;
+        applyLoudness({ ...LOUD_DEFAULTS, ...data });
         scTokenInput.value = data.soundcloud_token || '';
       } catch (_) {}
     }
@@ -1301,6 +1997,7 @@
        FETCH INFO → CREATE TAB
     ══════════════════════════════════════════════════════ */
     fetchBtn.addEventListener('click', async () => {
+      if (typeof setAppMode === 'function' && isNormalizeMode()) setAppMode('download');
       const url = urlInput.value.trim();
       if (!url) { urlInput.focus(); return; }
 
@@ -1397,6 +2094,7 @@
         eta: '',
         filename: '',
         qualityNote: '',
+        loudness: null,
         error: '',
         artworkGridVisible: false,
         artworkGridHtml: '',
@@ -1440,6 +2138,10 @@
        RENDER TAB BAR
     ══════════════════════════════════════════════════════ */
     function renderTabBar() {
+      // Downloads still running show on the Download mode button, so they
+      // stay visible while the Normalize view is open.
+      const running = tabs.filter(t => t.status === 'downloading').length;
+      document.getElementById('mode-download-count').textContent = running || '';
       if (tabs.length === 0) {
         tabBar.classList.remove('has-tabs');
         tabBar.innerHTML = '';
@@ -1454,8 +2156,9 @@
                        : 'idle';
         return `
           <div class="tab ${isActive ? 'active' : ''}" data-tab-id="${tab.id}">
-            <div class="tab-status ${dotClass}"></div>
+            ${dotClass === 'done' ? '<i data-lucide="check" class="icon-sm tab-check"></i>' : `<div class="tab-status ${dotClass}"></div>`}
             <span class="tab-label" title="${escHtml(tab.title)}">${escHtml(tab.label)}</span>
+            ${dotClass === 'pending' ? `<span class="tab-mini"><i style="width:${Math.round(tab.percent || 0)}%"></i></span>` : ''}
             <span class="tab-close" data-close-id="${tab.id}" title="Close"><i data-lucide="x" class="icon-sm"></i></span>
           </div>`;
       }).join('');
@@ -1490,6 +2193,7 @@
             <div class="empty-icon"><i data-lucide="link-2" class="icon-xl"></i></div>
             <div class="empty-title">Drag a YouTube or SoundCloud URL here</div>
             <div class="empty-sub">or paste a link in the search bar above</div>
+            <div class="empty-alt">Already have the tracks? <button type="button" data-goto-normalize>Normalize files you own</button></div>
           </div>`;
         refreshIcons(contentEl);
         return;
@@ -1529,11 +2233,11 @@
       const loadClass  = 'artwork-grid-loading' + (tab.artworkLoadingVisible ? ' visible' : '');
       const emptyClass = 'artwork-grid-empty' + (tab.artworkEmptyVisible ? ' visible' : '');
 
-      const genres = ['Music','House','Tech House','Bass House','Acid House','Afro House','Dance','Deep House','Disco House','Funky House','Indie Dance','Jackin House','Melodic House','Mainroom','Minimal','Progressive House','Techno','Trance','Vocal House','Downtempo','DJ Sets','Custom'];
+      const genres = ['Music','House','Tech House','Bass House','Acid House','Afro House','Dance','Deep House','Disco House','Drum & Bass','Dubstep','Electro','Electronica','Funky House','Hard Techno','Indie Dance','Indie Tech','Jackin House','Melodic House','Mainroom','Minimal','Organic House','Progressive House','Techno','Trance','Vocal House','Downtempo','DJ Sets','DJ Tools','Custom'];
       const isCustomGenre = !genres.slice(0,-1).includes(tab.genre);
       const genreSelectVal = isCustomGenre ? 'Custom' : tab.genre;
       const genreOptions = genres.map(g =>
-        `<option value="${g}"${genreSelectVal === g ? ' selected' : ''}>${g}</option>`
+        `<option value="${escHtml(g)}"${genreSelectVal === g ? ' selected' : ''}>${escHtml(g)}</option>`
       ).join('');
       const genreInputStyle = isCustomGenre ? '' : 'display:none';
 
@@ -1544,9 +2248,9 @@
           <div class="source-title-bar">
             <span class="source-title-label">${escHtml(tab.source || 'YouTube')} Title</span>
             <input class="source-title-text" id="source-title-text" type="text" value="${escHtml(tab.sourceTitle)}" title="${escHtml(tab.sourceTitle)}" />
-            <button class="source-title-btn" type="button" id="source-copy-btn" title="Copy to clipboard"><i data-lucide="copy" class="icon-sm"></i></button>
-            <button class="source-title-btn" type="button" id="source-image-search-btn" title="Search Google Images"><i data-lucide="search" class="icon-sm"></i></button>
-            <button class="source-title-btn" type="button" id="source-beatport-btn" title="Search Beatport"><i data-lucide="headphones" class="icon-sm"></i></button>
+            <button class="source-title-btn" type="button" id="source-copy-btn" aria-label="Copy title" data-tip="Copy title"><i data-lucide="clipboard-copy" class="icon-sm"></i></button>
+            <button class="source-title-btn" type="button" id="source-image-search-btn" aria-label="Find artwork on Google Images" data-tip="Find artwork on Google Images"><i data-lucide="image" class="icon-sm"></i></button>
+            <button class="source-title-btn" type="button" id="source-beatport-btn" aria-label="Look up track on Beatport" data-tip="Look up track on Beatport"><svg class="beatport-mark" viewBox="0 0 1036 1200" aria-hidden="true"><path d="M817.7,763.3c0,120-95.8,217-217,217c-120,0-215.8-94.6-215.8-217c0-57.6,21.8-108.5,56.4-146.7L294.6,763.3l-77-77l165.5-163.7c22.4-22.4,33.9-51.5,33.9-83.6V233.6h108.5V439c0,63-22.4,116.4-66.1,160l-4.9,4.8c38.2-35.2,90.3-56.4,146.1-56.4C723.8,547.5,817.7,645.1,817.7,763.3z M719.5,763.3c0-64.3-53.3-116.4-118.8-116.4c-66.1,0-117.6,54.6-117.6,116.4c0,63.6,52.1,117.6,117.6,117.6C668.6,880.9,719.5,825.8,719.5,763.3z"/></svg></button>
           </div>
 
           <div class="tags-layout">
@@ -1570,8 +2274,8 @@
                 <div class="title-input-wrap">
                   <input id="tag-title" type="text" value="${escHtml(tab.title)}" />
                   <div class="title-append-btns">
-                    <button class="title-append-btn" type="button" id="title-append-original" title="Append (Original Mix)"><svg class="icon-sm" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:auto"><line x1="2" y1="9" x2="2" y2="15"/><line x1="7" y1="4" x2="7" y2="20"/><line x1="12" y1="7" x2="12" y2="17"/><line x1="17" y1="5" x2="17" y2="19"/></svg></button>
-                    <button class="title-append-btn" type="button" id="title-append-extended" title="Append (Extended Mix)"><svg class="icon-sm" viewBox="0 0 37 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:auto"><line x1="2" y1="10" x2="2" y2="16"/><line x1="7" y1="6" x2="7" y2="20"/><line x1="12" y1="4" x2="12" y2="21"/><line x1="17" y1="8" x2="17" y2="18"/><line x1="22" y1="3" x2="22" y2="21"/><line x1="27" y1="6" x2="27" y2="18"/><line x1="32" y1="5" x2="32" y2="17"/><line x1="37" y1="9" x2="37" y2="15"/></svg></button>
+                    <button class="title-append-btn" type="button" id="title-append-original" aria-label="Add (Original Mix) to the title" data-tip="Add (Original Mix) to the title"><svg class="icon-sm" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:auto"><line x1="2" y1="9" x2="2" y2="15"/><line x1="7" y1="4" x2="7" y2="20"/><line x1="12" y1="7" x2="12" y2="17"/><line x1="17" y1="5" x2="17" y2="19"/></svg></button>
+                    <button class="title-append-btn" type="button" id="title-append-extended" aria-label="Add (Extended Mix) to the title" data-tip="Add (Extended Mix) to the title"><svg class="icon-sm" viewBox="0 0 37 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:auto"><line x1="2" y1="10" x2="2" y2="16"/><line x1="7" y1="6" x2="7" y2="20"/><line x1="12" y1="4" x2="12" y2="21"/><line x1="17" y1="8" x2="17" y2="18"/><line x1="22" y1="3" x2="22" y2="21"/><line x1="27" y1="6" x2="27" y2="18"/><line x1="32" y1="5" x2="32" y2="17"/><line x1="37" y1="9" x2="37" y2="15"/></svg></button>
                   </div>
                 </div>
               </div>
@@ -1593,8 +2297,8 @@
                   <div class="title-input-wrap">
                     <input id="tag-bpm" type="text" value="${escHtml(tab.bpm)}" placeholder="${tab.bpmState === 'detecting' ? 'Detecting…' : 'Auto'}" />
                     <div class="title-append-btns">
-                      <button class="title-append-btn is-text" type="button" id="bpm-half" title="Halve (fix double-time)">&divide;2</button>
-                      <button class="title-append-btn is-text" type="button" id="bpm-double" title="Double (fix half-time)">&times;2</button>
+                      <button class="title-append-btn is-text" type="button" id="bpm-half" aria-label="Halve the BPM (fixes double-time detection)" data-tip="Halve the BPM (fixes double-time detection)">&divide;2</button>
+                      <button class="title-append-btn is-text" type="button" id="bpm-double" aria-label="Double the BPM (fixes half-time detection)" data-tip="Double the BPM (fixes half-time detection)">&times;2</button>
                     </div>
                   </div>
                 </div>
@@ -1611,7 +2315,7 @@
                 <input id="tag-comments" type="text" value="${escHtml(tab.comments)}" placeholder="Optional" />
               </div>
               <div class="download-bar">
-                <button class="btn-primary" id="download-btn" type="button">Download MP3</button>
+                <button class="btn-primary" id="download-btn" type="button"><i data-lucide="download" class="icon-md"></i>Download MP3</button>
               </div>
             </div>
 
@@ -1803,9 +2507,11 @@
           const btn = document.getElementById('source-copy-btn');
           if (btn) {
             btn.innerHTML = '<i data-lucide="check" class="icon-sm"></i>';
+            btn.dataset.tip = 'Copied';
             refreshIcons(btn);
             setTimeout(() => {
-              btn.innerHTML = '<i data-lucide="copy" class="icon-sm"></i>';
+              btn.innerHTML = '<i data-lucide="clipboard-copy" class="icon-sm"></i>';
+              btn.dataset.tip = 'Copy title';
               refreshIcons(btn);
             }, 1500);
           }
@@ -1957,18 +2663,33 @@
     function buildDoneScreen(tab) {
       return `
         <div class="tab-screen active" id="screen-done">
-          <div style="text-align:center;padding:28px 0 20px">
-            <div style="margin-bottom:12px;color:var(--success)"><i data-lucide="circle-check" class="icon-xl"></i></div>
-            <div style="font-weight:600;font-size:.95rem;margin-bottom:6px;word-break:break-all">${escHtml(tab.filename)}</div>
-            <div style="font-size:.8rem;color:var(--muted)">Saved to ${escHtml(savedDownloadDir || '~/Downloads')}</div>
+          <div class="done-body">
+            ${tab.artworkThumb
+              ? `<div class="done-art"><img src="${escHtml(tab.artworkThumb)}" alt="" /><span class="done-check"><i data-lucide="check" class="icon-md"></i></span></div>`
+              : '<div class="done-icon"><i data-lucide="circle-check" class="icon-xl"></i></div>'}
+            <div class="done-title">Downloaded</div>
+            <div class="done-file">${escHtml(tab.filename)}</div>
+            <div class="done-dir">Saved to ${escHtml(savedDownloadDir || '~/Downloads')}</div>
+            ${loudnessBadge(tab.loudness)}
             ${tab.qualityNote ? `
-            <div style="display:flex;gap:7px;align-items:flex-start;justify-content:center;margin:14px auto 0;max-width:430px;padding:9px 12px;border-radius:8px;border:1px solid #e0a63a55;background:#e0a63a14;font-size:.78rem;line-height:1.45;color:#e0a63a;text-align:left">
-              <i data-lucide="triangle-alert" class="icon-sm" style="flex-shrink:0;margin-top:1px"></i>
+            <div class="quality-note">
+              <i data-lucide="triangle-alert" class="icon-sm"></i>
               <span>${escHtml(tab.qualityNote)}</span>
             </div>` : ''}
           </div>
-          <button class="btn-primary" id="done-close-btn" type="button">Close Tab</button>
+          <button class="btn-secondary" id="done-close-btn" type="button">Close Tab</button>
         </div>`;
+    }
+
+    function loudnessBadge(l) {
+      if (!l) return '';
+      if (l.error) return `<div class="loud-badge" title="${escHtml(l.error)}">Loudness unchanged: ${escHtml(l.error)}</div>`;
+      const fmt = v => (v > 0 ? '+' : '') + v.toFixed(1);
+      let extra = '';
+      if (l.limit_db > 0) extra = ` · limited ${l.limit_db.toFixed(1)} dB`;
+      if (l.capped) extra += ' · capped';
+      return `<div class="loud-badge" title="Target ${l.target.toFixed(1)} LUFS · gain ${fmt(l.gain_db)} dB · peak ${l.out_true_peak.toFixed(1)} dBTP">
+        <i data-lucide="audio-lines" class="icon-sm"></i><span>${l.in_lufs.toFixed(1)}</span><i data-lucide="arrow-right" class="icon-sm"></i><b>${l.out_lufs.toFixed(1)} LUFS</b>${extra ? `<span class="loud-extra">${extra.slice(3)}</span>` : ''}</div>`;
     }
 
     function bindDoneEvents(tab) {
@@ -1983,7 +2704,7 @@
             <div style="font-weight:600;font-size:.9rem;color:var(--error);margin-bottom:6px">${escHtml(tab.error || 'Download failed')}</div>
           </div>
           <button class="btn-primary" id="error-retry-btn" type="button">Try Again</button>
-          <button class="artwork-clear-btn" id="error-close-btn" type="button" style="width:100%;margin-top:8px;text-align:center">Close Tab</button>
+          <button class="btn-secondary" id="error-close-btn" type="button">Close Tab</button>
         </div>`;
     }
 
@@ -2065,9 +2786,16 @@
           tab.speed = fmtSpeed(job.speed);
           tab.eta   = fmtEta(job.eta);
           updateProgressScreen(tab);
+          const mini = tabBar.querySelector(`[data-tab-id="${tab.id}"] .tab-mini i`);
+          if (mini) mini.style.width = Math.round(tab.percent || 0) + '%';
         } else if (job.status === 'processing') {
           tab.percent = 100;
           tab.statusMsg = 'Converting to MP3…';
+          tab.speed = ''; tab.eta = '';
+          updateProgressScreen(tab);
+        } else if (job.status === 'normalizing') {
+          tab.percent = 100;
+          tab.statusMsg = 'Normalizing loudness…';
           tab.speed = ''; tab.eta = '';
           updateProgressScreen(tab);
         } else if (job.status === 'tagging') {
@@ -2084,8 +2812,8 @@
             tab.status = 'done';
             tab.filename = job.filename || '';
             tab.qualityNote = job.quality_note || '';
+            tab.loudness = job.loudness || null;
             if (jobId) fetch(`/reveal/${jobId}`);
-            if (jobId && platinumToggle.checked) fetch(`/platinum/${jobId}`);
             showToast({ status: 'done', filename: tab.filename });
           } else {
             tab.status = 'error';
@@ -2162,13 +2890,223 @@
     if (document.readyState !== 'loading') refreshIcons();
 
     /* ══════════════════════════════════════════════════════
+       NORMALIZE FILES
+       Existing tracks get the same loudness processing as downloads,
+       using the Loudness settings from the drawer.
+    ══════════════════════════════════════════════════════ */
+    const normPanel = document.getElementById('norm-panel');
+    const cardEl    = document.querySelector('.card');
+    const normList  = document.getElementById('norm-list');
+    const normGo    = document.getElementById('norm-go');
+    const normStatus = document.getElementById('norm-status');
+    let normPoll = null, normState = null;
+
+    /* App modes: Download (URL bar, track tabs, tag editor) and Normalize
+       (files already on disk). Each keeps its state while the other shows. */
+    let appMode = 'download';
+    const isNormalizeMode = () => appMode === 'normalize';
+    function setAppMode(mode) {
+      appMode = mode === 'normalize' ? 'normalize' : 'download';
+      cardEl.classList.toggle('mode-normalize', isNormalizeMode());
+      document.querySelectorAll('.mode-switch button').forEach(b => {
+        const on = b.dataset.mode === appMode;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-selected', on);
+      });
+      if (isNormalizeMode()) refreshNormPanel();
+      else urlInput.focus();
+    }
+    function openNormPanel() { setAppMode('normalize'); }
+    document.querySelectorAll('.mode-switch button').forEach(b =>
+      b.addEventListener('click', () => setAppMode(b.dataset.mode)));
+    contentEl.addEventListener('click', (e) => {
+      if (e.target.closest('[data-goto-normalize]')) openNormPanel();
+    });
+    document.getElementById('norm-change').addEventListener('click', () => settingsBtn.click());
+
+    async function normPost(path, body) {
+      const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(body || {}) });
+      return res.json();
+    }
+    async function addNormPaths(paths) {
+      if (!paths || !paths.length) return;
+      await normPost('/files/add', { paths });
+      refreshNormPanel();
+    }
+    document.getElementById('norm-add-files').addEventListener('click', async () => {
+      if (window.pywebview) return addNormPaths(await window.pywebview.api.pick_tracks());
+      const p = prompt('Path to a track or folder:');
+      if (p && p.trim()) addNormPaths([p.trim()]);
+    });
+    document.getElementById('norm-add-folder').addEventListener('click', async () => {
+      if (window.pywebview) {
+        const dir = await window.pywebview.api.pick_folder();
+        return addNormPaths(dir ? [dir] : []);
+      }
+      const p = prompt('Path to a folder of tracks:');
+      if (p && p.trim()) addNormPaths([p.trim()]);
+    });
+    // Called by the desktop app after it receives a Finder drop.
+    window.onTracksDropped = () => openNormPanel();
+    window.onLoudnessSettingsChanged = () => { if (isNormalizeMode()) refreshNormPanel(); };
+
+    // Replace is the default: it is the only mode that keeps cue points linked.
+    const NORM_MODE_DEFAULT = 'replace';
+    let normModeValue = NORM_MODE_DEFAULT;
+    const normModeSelect = document.getElementById('norm-mode-select');
+    function normMode() { return normModeValue; }
+    function setNormMode(mode, save) {
+      normModeValue = mode === 'copy' ? 'copy' : mode === 'replace' ? 'replace' : NORM_MODE_DEFAULT;
+      normModeSelect.value = normModeValue;
+      if (save) fetch('/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                     body: JSON.stringify({ normalize_files_mode: normModeValue }) });
+      renderNormPanel();
+    }
+    normModeSelect.addEventListener('change', () => setNormMode(normModeSelect.value, true));
+    setNormMode(NORM_MODE_DEFAULT, false);
+    fetch('/settings').then(r => r.json()).then(d => setNormMode(d.normalize_files_mode, false)).catch(() => {});
+
+    // Output folders: an empty setting means the default (next to each
+    // track for copies, ~/Music/YouTrax Originals for backups).
+    async function saveNormDir(key, dir) {
+      await fetch('/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ [key]: dir }) });
+      refreshNormPanel();
+    }
+    const normDirKey = () => normMode() === 'replace' ? 'normalize_files_backup_dir' : 'normalize_files_copy_dir';
+    document.getElementById('norm-dir-browse').addEventListener('click', async () => {
+      let dir = null;
+      if (window.pywebview) {
+        try { dir = await window.pywebview.api.pick_folder(); } catch (_) {}
+      } else {
+        dir = prompt('Folder path:');
+      }
+      if (dir && dir.trim()) saveNormDir(normDirKey(), dir.trim());
+    });
+    document.getElementById('norm-dir-reset').addEventListener('click', () => saveNormDir(normDirKey(), ''));
+
+    normGo.addEventListener('click', async () => {
+      const replace = normMode() === 'replace';
+      if (replace && !confirm('Replace the original files with normalized versions?\n\n' +
+          'Each original is copied to ' + normState.backup_root + ' first.')) return;
+      const r = await normPost('/files/process', { mode: normMode() });
+      if (r.error) normStatus.textContent = r.error;
+      refreshNormPanel();
+    });
+    document.getElementById('norm-clear').addEventListener('click', async () => {
+      const finished = normState && normState.items.some(i => i.status === 'done' || i.status === 'error');
+      const pending  = normState && normState.items.some(i => i.status === 'ready' || i.status === 'analyzing');
+      await normPost('/files/remove', finished && pending ? { finished: true } : { all: true });
+      refreshNormPanel();
+    });
+    normList.addEventListener('click', async (e) => {
+      const x = e.target.closest('[data-norm-remove]');
+      if (!x) return;
+      await normPost('/files/remove', { id: x.dataset.normRemove });
+      refreshNormPanel();
+    });
+
+    async function refreshNormPanel() {
+      try { normState = await (await fetch('/files')).json(); } catch (_) { return; }
+      renderNormPanel();
+      const busy = normState.processing || normState.items.some(i => ['analyzing', 'queued', 'working'].includes(i.status));
+      if (busy && !normPoll) normPoll = setInterval(refreshNormPanel, 600);
+      if (!busy && normPoll) { clearInterval(normPoll); normPoll = null; }
+    }
+
+    function normTag(i) {
+      const signed = v => (v > 0 ? '+' : '') + v.toFixed(1);
+      if (i.status === 'analyzing') return '<span class="norm-tag">Analyzing…</span>';
+      if (i.status === 'queued')    return '<span class="norm-tag">Queued</span>';
+      if (i.status === 'working')   return '<span class="norm-tag working">Normalizing…</span>';
+      if (i.status === 'error')     return `<span class="norm-tag err" title="${escHtml(i.error || '')}">Error</span>`;
+      // Refused by the timing check: the track would no longer line up with its cue points.
+      if (i.status === 'refused')   return `<span class="norm-tag lim" title="${escHtml(i.error || '')}">Skipped · timing</span>`;
+      if (i.status === 'done') {
+        const r = i.result;
+        return `<span class="norm-tag done" title="${escHtml(r.output)}"><i data-lucide="check" class="icon-sm"></i>${r.out_lufs.toFixed(1)} LUFS${r.limit_db > 0 ? ' · limited ' + r.limit_db.toFixed(1) : ''}</span>`;
+      }
+      const a = i.action;
+      if (a.skip) return `<span class="norm-tag">${escHtml(a.note)}</span>`;
+      if (a.limit_db > 0) return `<span class="norm-tag ${a.gain_db > 0 ? 'up' : 'down'}">${signed(a.gain_db)} dB<span class="norm-lim">· limit ${a.limit_db.toFixed(1)}${a.capped ? ' · capped' : ''}</span></span>`;
+      return `<span class="norm-tag ${a.gain_db > 0 ? 'up' : 'down'}">${signed(a.gain_db)} dB</span>`;
+    }
+
+    function renderNormPanel() {
+      if (!normState) return;
+      const st = normState.settings;
+      document.getElementById('norm-summary').innerHTML =
+        `<span class="norm-cap">Target</span><b>${st.target.toFixed(1)} LUFS</b> · ceiling ${st.ceiling.toFixed(1)} dBTP · ` +
+        (st.pure_gain ? 'no limiting' : `max limiting ${st.max_limit.toFixed(1)} dB`);
+      const replace = normMode() === 'replace';
+      const custom = replace ? normState.backup_root !== normState.default_backup_root : !!normState.copy_dir;
+      const pathEl = document.getElementById('norm-dir-path');
+      pathEl.textContent = pathEl.title = replace ? normState.backup_root
+        : (normState.copy_dir || 'Next to each track, in a "Normalized" folder');
+      pathEl.classList.toggle('placeholder', !custom);
+      document.getElementById('norm-dir-label').textContent = replace ? 'Back up to' : 'Save to';
+      const reset = document.getElementById('norm-dir-reset');
+      reset.style.visibility = custom ? 'visible' : 'hidden';
+      reset.title = replace ? 'Back to the default backup folder' : 'Back to next to each track';
+
+      const items = normState.items;
+      document.getElementById('norm-drop').classList.toggle('compact', items.length > 0);
+      const listHead = '<div class="norm-row norm-head"><span>Track</span><span>LUFS</span><span>Change</span><span></span></div>';
+      normList.innerHTML = items.length ? listHead + items.map(i => {
+        const info = i.info;
+        const lufs = info ? `<b>${info.lufs.toFixed(1)}</b> LUFS` : '';
+        const fmt = info ? `${escHtml(info.codec)}${info.kbps && info.codec !== 'flac' && !info.codec.startsWith('pcm') ? ' ' + info.kbps + 'k' : ''}` : '';
+        return `<div class="norm-row">
+          <div class="norm-name"><div title="${escHtml(i.path)}">${escHtml(i.name)}</div><small>${escHtml(i.folder)}${fmt ? ' · ' + fmt : ''}</small></div>
+          <div class="norm-lufs">${lufs}</div>
+          ${normTag(i)}
+          <button class="norm-x" type="button" title="Remove" data-norm-remove="${i.id}" ${normState.processing ? 'disabled' : ''}><i data-lucide="x" class="icon-sm"></i></button>
+        </div>`;
+      }).join('') : '<div class="norm-empty">No tracks added yet.</div>';
+      lucide.createIcons({ nodes: [normList] });
+
+      const todo = items.filter(i => i.status === 'ready' && !i.action.skip).length;
+      const done = items.filter(i => i.status === 'done').length;
+      const working = items.filter(i => i.status === 'queued' || i.status === 'working').length;
+      normGo.disabled = !todo || normState.processing;
+      normGo.classList.toggle('running', !!normState.processing);
+      normGo.style.setProperty('--p', `${done + working ? Math.round(done / (done + working) * 100) : 0}%`);
+      normGo.innerHTML = normState.processing ? `<span>Normalizing… ${done} done, ${working} to go</span>`
+        : `<i data-lucide="audio-lines" class="icon-md"></i><span>${todo ? `Normalize ${todo} Track${todo === 1 ? '' : 's'}` : 'Normalize'}</span>`;
+      refreshIcons(normGo);
+      const analyzing = items.filter(i => i.status === 'analyzing').length;
+      // Progress on the Normalize mode button, visible from Download mode too.
+      document.getElementById('mode-normalize-count').textContent =
+        normState.processing ? `${done}/${done + working}` : analyzing ? '…' : '';
+      const skipped = items.filter(i => i.status === 'ready' && i.action.skip).length;
+      const refused = items.filter(i => i.status === 'refused').length;
+      normStatus.textContent = [
+        analyzing && `Analyzing ${analyzing}…`,
+        done && `${done} normalized`,
+        skipped && `${skipped} already at target`,
+        refused && `${refused} left unchanged to protect cue timing (hover for why)`,
+      ].filter(Boolean).join(' · ');
+    }
+
+    /* ══════════════════════════════════════════════════════
        DRAG AND DROP
     ══════════════════════════════════════════════════════ */
     const dropOverlay = document.getElementById('drop-overlay');
     let dragDepth = 0; // track enter/leave pairs across child elements
 
-    function setDragActive(on) {
-      dropOverlay.classList.toggle('active', on);
+    const dropText = dropOverlay.querySelector('.drop-overlay-text');
+    const dropSub  = dropOverlay.querySelector('.drop-overlay-sub');
+    function setDragActive(on, files) {
+      if (on) {
+        dropText.textContent = files ? 'Drop tracks to normalize' : 'Drop URL to add tab';
+        dropSub.textContent  = files ? 'They open in Normalize Files with your loudness settings'
+                                     : 'Release to fetch info and open a new tab';
+      }
+      // Over the open Normalize panel, its own drop zone highlights instead.
+      const inPanel = isNormalizeMode();
+      dropOverlay.classList.toggle('active', on && !inPanel);
+      document.getElementById('norm-drop').classList.toggle('drag-active', on && inPanel);
       const zone = document.getElementById('empty-drop-zone');
       if (zone) zone.classList.toggle('drag-active', on);
     }
@@ -2176,7 +3114,7 @@
     document.addEventListener('dragenter', (e) => {
       e.preventDefault();
       dragDepth++;
-      if (dragDepth === 1) setDragActive(true);
+      if (dragDepth === 1) setDragActive(true, [...e.dataTransfer.types].includes('Files'));
     });
 
     document.addEventListener('dragover', (e) => {
@@ -2194,11 +3132,22 @@
       dragDepth = 0;
       setDragActive(false);
 
+      // Audio files: the desktop app picks up their paths natively (see
+      // mac_app.py) and opens the Normalize panel; a plain browser can't.
+      if (e.dataTransfer.files && e.dataTransfer.files.length) {
+        if (!window.pywebview) {
+          openNormPanel();
+          normStatus.textContent = 'Dropping files needs the YouTrax app. Use Add Tracks… instead.';
+        }
+        return;
+      }
+
       // Try URI list first (dragging address bar / links), fall back to plain text
       const url = (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || '').trim().split('\n')[0].trim();
       if (!url || !url.startsWith('http')) return;
 
       // Reuse the same fetch flow as the URL bar
+      setAppMode('download');
       urlInput.value = url;
       fetchBtn.click();
     });

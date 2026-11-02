@@ -319,9 +319,17 @@ def download_audio(
     progress_hook=None,
     verbose: bool = True,
     details: dict | None = None,
+    normalize=None,
 ) -> str:
     """
     Download *url* and save as a 320 kbps MP3 inside *output_dir*.
+
+    When *normalize* (a ``loudness.Settings``) is given and enabled, the
+    source audio is converted by loudness.convert_to_mp3 instead of yt-dlp,
+    so the MP3 lands at the target loudness after a single encode.
+    *progress_hook* then also receives ``{'status': 'normalizing'}``, and
+    ``details['loudness']`` holds the measurements (or ``{'error': ...}`` if
+    normalizing failed and a plain conversion was used instead).
 
     After download, the file is renamed to "Track - Artist.mp3" when
     metadata is available from YouTube, otherwise the video title is kept.
@@ -341,12 +349,15 @@ def download_audio(
         progress_hook = make_cli_progress_hook()
 
     hooks = [progress_hook] if progress_hook else []
+    normalizing = bool(normalize and normalize.enabled)
 
     ydl_opts: dict = {
         'format': AUDIO_FORMAT,
         'outtmpl': str(out / '%(title)s.%(ext)s'),
         'noplaylist': True,            # only download the single video
-        'postprocessors': [
+        # When normalizing, keep the source audio: loudness.py does the one
+        # MP3 encode itself, with the gain applied.
+        'postprocessors': [] if normalizing else [
             {
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -373,15 +384,7 @@ def download_audio(
     if js_runtimes:
         ydl_opts['js_runtimes'] = js_runtimes
 
-    # Use bundled ffmpeg when set by the PyInstaller runtime hook,
-    # or fall back to imageio-ffmpeg in dev mode, then system ffmpeg.
-    ffmpeg_bin = os.environ.get('YTDL_FFMPEG_BINARY')
-    if not ffmpeg_bin:
-        try:
-            import imageio_ffmpeg
-            ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
-        except Exception:
-            pass
+    ffmpeg_bin = find_ffmpeg()
     if ffmpeg_bin:
         ydl_opts['ffmpeg_location'] = ffmpeg_bin
 
@@ -406,8 +409,12 @@ def download_audio(
                 'token is invalid' in w.lower() for w in catcher.warnings
             )
 
+        if normalizing:
+            mp3_path = _normalize_download(
+                ydl, info, ffmpeg_bin or 'ffmpeg', normalize, progress_hook, details,
+            )
         # 1. Best: postprocessor hook gave us the exact path yt-dlp wrote.
-        if captured and Path(captured[-1]).exists():
+        elif captured and Path(captured[-1]).exists():
             mp3_path = captured[-1]
         # 2. Good: derive from yt-dlp's own filename logic + swap extension.
         elif Path(ydl.prepare_filename(info)).with_suffix('.mp3').exists():
@@ -423,6 +430,55 @@ def download_audio(
         mp3_path = rename_by_tags(mp3_path, info)
 
         return mp3_path
+
+
+def find_ffmpeg() -> str | None:
+    """Bundled ffmpeg (set by the PyInstaller runtime hook), else
+    imageio-ffmpeg's in dev mode; None means rely on ffmpeg on PATH."""
+    ffmpeg_bin = os.environ.get('YTDL_FFMPEG_BINARY')
+    if not ffmpeg_bin:
+        try:
+            import imageio_ffmpeg
+            ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            pass
+    return ffmpeg_bin or None
+
+
+def _normalize_download(ydl, info: dict, ffmpeg_bin: str, settings,
+                        progress_hook, details: dict | None) -> str:
+    """Convert the downloaded source audio to a normalized 320 kbps MP3."""
+    import loudness
+
+    downloads = info.get('requested_downloads') or []
+    src = Path(downloads[0].get('filepath') or '') if downloads else Path()
+    if not src.is_file():
+        src = Path(ydl.prepare_filename(info))
+    if not src.is_file():
+        raise FileNotFoundError(f"Could not locate the downloaded audio for {info.get('title')}")
+
+    dest = src.with_suffix('.mp3')
+    if src.suffix.lower() == '.mp3':
+        # Already MP3 (e.g. SoundCloud progressive): move it aside so the
+        # source stays readable while the normalized file is written.
+        moved = src.with_name(src.stem + '.source.mp3')
+        os.replace(src, moved)
+        src = moved
+
+    if progress_hook:
+        progress_hook({'status': 'normalizing'})
+    try:
+        result = loudness.convert_to_mp3(ffmpeg_bin, str(src), str(dest), settings)
+    except RuntimeError as exc:
+        # Never lose a download over loudness: fall back to a plain encode.
+        loudness.encode_mp3(ffmpeg_bin, str(src), str(dest))
+        result = {'error': str(exc)}
+    finally:
+        if dest.exists():
+            src.unlink(missing_ok=True)
+    if details is not None:
+        details['loudness'] = result
+    return str(dest)
 
 
 def progressive_stream_url(url: str):

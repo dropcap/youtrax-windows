@@ -23,11 +23,12 @@ except ImportError:
     sys.exit("yt-dlp is required. Run: pip install yt-dlp")
 
 from app import (
-    _jobs, _lock, _run_download, _load_settings, _save_settings, bpm_for_url,
-    import_soundcloud_token, info_for_url, open_in_platinum_notes,
-    reveal_in_explorer,
+    _jobs, _lock, _run_download, _load_settings, _read_settings_file, _save_settings, bpm_for_url,
+    import_soundcloud_token, info_for_url, reveal_in_explorer,
 )
 import app_updater
+import loudness
+import file_normalizer
 from version import get_changelog, get_version
 
 import json
@@ -39,6 +40,7 @@ flask_app = Flask(
     __name__,
     template_folder=os.environ['YTDL_TEMPLATE_FOLDER'],
 )
+flask_app.register_blueprint(file_normalizer.bp)
 
 # Will be set after webview.create_window()
 _window = None
@@ -179,6 +181,16 @@ class Api:
         if result:
             return result[0]
 
+    def pick_tracks(self):
+        """Native multi-select picker for the Normalize Files panel; returns paths."""
+        if _window is None:
+            return []
+        exts = ';'.join(f'*{e}' for e in sorted(loudness.FILE_EXTS))
+        result = _window.create_file_dialog(
+            webview.OPEN_DIALOG, allow_multiple=True, file_types=(f'Audio files ({exts})',),
+        )
+        return list(result or [])
+
     def open_url(self, url: str):
         """Open a URL in the default system browser."""
         import webbrowser
@@ -194,7 +206,8 @@ class Api:
 
 @flask_app.route('/')
 def index():
-    return render_template('index.html')
+    # no-store: the web view must not reuse a cached page after an update.
+    return render_template('index.html'), 200, {'Cache-Control': 'no-store'}
 
 
 @flask_app.post('/inject-url')
@@ -259,7 +272,9 @@ def start_download():
     if not url:
         return jsonify(error='URL is required'), 400
     job_id = str(uuid.uuid4())
-    threading.Thread(target=_run_download, args=(job_id, url, output_dir, tags), daemon=True).start()
+    # Loudness settings are read once per download (see app.start_download).
+    normalize = loudness.Settings.from_saved(_read_settings_file())
+    threading.Thread(target=_run_download, args=(job_id, url, output_dir, tags, normalize), daemon=True).start()
     return jsonify(job_id=job_id)
 
 
@@ -383,18 +398,6 @@ def reveal_file(job_id: str):
     return jsonify(ok=True)
 
 
-@flask_app.get('/platinum/<job_id>')
-def open_in_platinum(job_id: str):
-    """Open the downloaded file in Platinum Notes for audio enhancement."""
-    with _lock:
-        job = _jobs.get(job_id)
-    if not job or job['status'] != 'done' or not job.get('file'):
-        return jsonify(error='File not ready'), 404
-    if not open_in_platinum_notes(job['file']):
-        return jsonify(error='Platinum Notes is not installed'), 404
-    return jsonify(ok=True)
-
-
 def start_flask():
     flask_app.run(host='127.0.0.1', port=PORT, debug=False, use_reloader=False)
 
@@ -441,6 +444,22 @@ if __name__ == '__main__':
             _pending_url = None
 
     _window.events.loaded += _on_loaded
+
+    # Audio files dragged in from Explorer go to the Normalize Files panel.
+    # Only pywebview's native drop handler sees their real paths.
+    from webview.dom import DOMEventHandler
+
+    def _on_file_drop(event):
+        files = (event.get('dataTransfer') or {}).get('files') or []
+        paths = [f['pywebviewFullPath'] for f in files if f.get('pywebviewFullPath')]
+        added = file_normalizer.add_paths(paths) if paths else 0
+        if added:
+            _window.evaluate_js(f'window.onTracksDropped && window.onTracksDropped({added})')
+
+    def _register_drop():
+        _window.dom.document.events.drop += DOMEventHandler(_on_file_drop, True, False)
+
+    _window.events.loaded += _register_drop
 
     def _on_closing():
         if _unsaved_tab_count > 0:

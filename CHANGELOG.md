@@ -9,6 +9,23 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-02
+
+### Added
+- Loudness normalization: every download is set to the same loudness, −11.5 LUFS by default, so tracks play back at a matching level without riding the gain. Loud tracks are turned down; quiet tracks are turned up, with a transparent limiter catching any peaks. The gain is applied during the one MP3 encode, so there is no extra quality loss
+- A Loudness section in Settings to switch normalization off or change it: target loudness (−8, −10, −11.5 recommended or −14 LUFS, or any custom value from −18 to −6), true-peak ceiling, maximum limiting on quiet tracks, and a pure-gain-only mode. Changes apply to the next download or Normalize run
+- Normalize Files: YouTrax now has two modes, Download and Normalize, switched at the top of the window. Drag tracks or whole folders from File Explorer onto YouTrax (or switch to Normalize and use Add Tracks/Add Folder) to give tracks you already have the same loudness treatment as downloads. MP3, AAC/ALAC (M4A), FLAC, WAV and AIFF keep their format, quality and every tag, including artwork and DJ software cue data. By default (and as recommended) the originals are replaced so cue points stay linked, with each original backed up first (to Music\YouTrax Originals, or a folder you choose); alternatively, save normalized copies in a "Normalized" folder next to each track or in a folder you choose. Tracks already normalized to the current target are skipped, and every track is checked sample by sample before it is written: if the new file would not line up exactly with the original, so cue points would move, the track is left unchanged and flagged
+- Finished downloads show their loudness before and after (for example "−7.0 → −11.5 LUFS"), and normalized files carry a `DJNORM` tag recording the target they were set to
+
+### Changed
+- A refreshed look: a darker, violet-tinted theme with the Geist typeface, a new app icon in the header, and clearer status lights on tracks and tabs. Finished downloads now show their artwork with a check mark. Light mode is still available
+- Settings are reorganised into groups (Appearance, Downloads, Loudness, SoundCloud), with the version and Check for Updates at the top, a Dark/Light theme menu, and a clearer SoundCloud token field with Show/Hide
+- The buttons next to the source title now say what they do on hover (copy title, find artwork on Google Images, look up the track on Beatport), as do the Original Mix, Extended Mix, ÷2 and ×2 buttons
+- More genres to pick from: Drum & Bass, Dubstep, Electro, Electronica, Hard Techno, Indie Tech, Organic House and DJ Tools
+
+### Removed
+- The Platinum Notes option. YouTrax now sets loudness itself, so downloads no longer need a second pass in Platinum Notes
+
 ## [1.3.1] - 2026-10-22
 
 ### Fixed

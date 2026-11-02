@@ -216,7 +216,7 @@ def apply_tags(mp3_path: str, metadata: dict, artwork: Optional[bytes] = None) -
     """Write ID3 tags to the MP3 file using mutagen."""
     from mutagen.id3 import (
         ID3, ID3NoHeaderError,
-        TIT2, TPE1, TALB, TDRC, TRCK, TPUB, TCON, TBPM, APIC, COMM,
+        TIT2, TPE1, TALB, TDRC, TRCK, TPUB, TCON, TBPM, APIC, COMM, TXXX,
     )
 
     path = Path(mp3_path)
@@ -247,6 +247,13 @@ def apply_tags(mp3_path: str, metadata: dict, artwork: Optional[bytes] = None) -
         tags['TBPM'] = TBPM(encoding=3, text=_format_bpm(metadata['bpm']))
     if metadata.get('comments'):
         tags['COMM::eng'] = COMM(encoding=3, lang='eng', desc='', text=metadata['comments'])
+
+    if metadata.get('loudness_target') is not None:
+        # Marks the file as already normalized (by YouTrax / DJ Normalizer)
+        # and records the target it was set to.
+        tags['TXXX:DJNORM'] = TXXX(
+            encoding=3, desc='DJNORM', text=f"{float(metadata['loudness_target']):.1f} LUFS",
+        )
 
     track = metadata.get('track_number')
     total = metadata.get('total_tracks')
