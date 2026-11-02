@@ -9,6 +9,16 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-02
+
+### Changed
+- Settings now has two tabs, Download Settings and Normalize Settings, with the version, Check for Updates and the theme always shown above them
+- Normalize mode's Output choice (Replace originals or Save copies) and its backup folder moved into Settings › Normalize Settings. The Normalize screen shows them as a summary line with a Change link, next to a cleaner loudness summary, so the track list has more room
+- Clear list moved into the track list's header
+
+### Fixed
+- After an update, the app window could keep showing the previous version's screen until it was restarted twice
+
 ## [2.0.0] - 2026-11-02
 
 ### Added

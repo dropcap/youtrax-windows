@@ -1212,6 +1212,25 @@
     .sc-token-row { display: flex; gap: 8px; }
     .sc-token-row input { flex: 1; min-width: 0; }
     .sc-token-block .set-desc b { color: var(--text); font-weight: 500; }
+    .set-tabs {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; padding: 3px; margin: 16px 0 4px;
+      background: var(--well); border: 1px solid var(--border); border-radius: 11px; box-shadow: var(--well-shadow);
+    }
+    .set-tabs button {
+      display: flex; align-items: center; justify-content: center; gap: 7px; height: 32px; border: 0; border-radius: 8px;
+      background: transparent; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer;
+      transition: color .15s, background .15s;
+    }
+    .set-tabs button:hover { color: var(--text); }
+    .set-tabs button svg { width: 15px; height: 15px; color: var(--faint); }
+    .set-tabs button.on { background: var(--key-bg-h); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.45); }
+    [data-theme="light"] .set-tabs button.on { box-shadow: 0 1px 2px rgba(40,30,80,.18); }
+    .set-tabs button.on svg { color: var(--accent-text); }
+    .set-panel { display: none; }
+    .set-panel.on { display: block; }
+    .set-panel > :first-child { margin-top: 16px; }
+    /* The tab already names the first group, so its caption would repeat it. */
+    [data-set-panel="downloads"] > .set-section:first-child > .set-caption { display: none; }
     .about-group { margin-top: 4px; }
     .about-group .set-desc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .about-group .update-status:empty { display: none; }
@@ -1219,7 +1238,7 @@
     .about-group .update-btn { flex-shrink: 0; }
 
     /* ── Normalize view ── */
-    .norm-summary b, .norm-lufs b { font-weight: 600; }
+    .norm-lufs b { font-weight: 600; }
     .norm-drop {
       border: 1.5px dashed var(--line2);
       background: repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 8px, transparent 8px 16px);
@@ -1266,9 +1285,18 @@
     .norm-head { position: sticky; top: 0; z-index: 1; padding-top: 7px; padding-bottom: 7px; background: var(--well) !important;
       font-size: .66rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
     .norm-head span:nth-child(2) { text-align: right; }
-    .norm-summary { justify-content: flex-start; gap: 8px; }
-    .norm-cap { font-size: .66rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; margin-right: 6px; }
-    .norm-summary b { font-size: .95rem; font-weight: 600; }
+    .norm-head-end { grid-column: 3 / 5; display: flex; align-items: center; justify-content: space-between; }
+    .norm-head-end button { font-size: .74rem; text-transform: none; letter-spacing: 0; font-weight: 500; padding: 0; }
+    .norm-head-end button:disabled { opacity: .4; cursor: default; text-decoration: none; }
+    /* Two summary lines: label/value pairs with room between them. */
+    .norm-summary { gap: 10px; margin-bottom: 8px; }
+    .norm-summary + .norm-summary { margin-bottom: 12px; }
+    .norm-sum-items { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 22px; row-gap: 4px; min-width: 0; }
+    .norm-sum-item { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; min-width: 0; }
+    .norm-sum-item > span { color: var(--muted); }
+    .norm-sum-item > b { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+    .norm-summary .info-tip .tip { bottom: auto; top: calc(100% + 8px); }
+    .norm-summary { justify-content: flex-start; }
     .norm-drop-icon { color: var(--faint); flex-shrink: 0; }
     .norm-drop:not(.compact) .norm-drop-icon { display: block; margin: 0 auto 8px; }
     .norm-drop.compact .norm-drop-icon { margin-right: -2px; }
@@ -1397,8 +1425,19 @@
     <!-- ── Normalize Files panel ── -->
     <div class="norm-view" id="norm-panel" role="tabpanel" aria-labelledby="mode-normalize">
       <div class="norm-summary">
-        <span id="norm-summary"></span>
+        <span class="norm-sum-items" id="norm-summary"></span>
         <button class="whats-new-link" id="norm-change" type="button">Change</button>
+      </div>
+      <div class="norm-summary">
+        <span class="norm-sum-items" id="norm-out-summary"></span>
+        <span class="info-tip" tabindex="0" aria-label="About the output options">
+          <i data-lucide="info" class="icon-sm"></i>
+          <span class="tip" role="tooltip">
+            <p><b>Replace originals</b> (recommended, the default) normalizes each track in place, so cue points stay linked in your DJ software. Each original is backed up first, and a track is left unchanged if its timing would shift.</p>
+            <p><b>Save copies</b> writes a normalized copy and leaves the original untouched. Rekordbox and Traktor treat the copy as a new track, without your cue points.</p>
+          </span>
+        </span>
+        <button class="whats-new-link" id="norm-out-change" type="button">Change</button>
       </div>
       <div class="norm-drop" id="norm-drop">
         <i data-lucide="hard-drive-download" class="icon-md norm-drop-icon"></i>
@@ -1410,32 +1449,9 @@
         </div>
       </div>
       <div class="norm-list" id="norm-list"></div>
-      <div class="norm-out">
-        <div class="norm-out-head">
-          <label for="norm-mode-select">Output</label>
-          <span class="info-tip" tabindex="0" aria-label="About the output options">
-            <i data-lucide="info" class="icon-sm"></i>
-            <span class="tip" role="tooltip">
-              <p><b>Replace originals</b> (recommended, the default) normalizes each track in place, so cue points stay linked in your DJ software. Each original is backed up first, and a track is left unchanged if its timing would shift.</p>
-              <p><b>Save copies</b> writes a normalized copy and leaves the original untouched. Rekordbox and Traktor treat the copy as a new track, without your cue points.</p>
-            </span>
-          </span>
-          <select id="norm-mode-select">
-            <option value="replace">Replace originals (recommended)</option>
-            <option value="copy">Save copies</option>
-          </select>
-        </div>
-        <div class="norm-dir">
-          <span class="norm-dir-label" id="norm-dir-label"></span>
-          <div class="folder-path" id="norm-dir-path"></div>
-          <button class="browse-btn" type="button" id="norm-dir-browse">Browse…</button>
-          <button class="norm-x" type="button" id="norm-dir-reset"><i data-lucide="rotate-ccw" class="icon-sm"></i></button>
-        </div>
-      </div>
       <button class="btn-primary" id="norm-go" type="button" disabled><i data-lucide="audio-lines" class="icon-md"></i><span>Normalize</span></button>
       <div class="norm-foot">
         <span class="settings-hint" id="norm-status" style="margin:0"></span>
-        <button class="whats-new-link" id="norm-clear" type="button">Clear list</button>
       </div>
     </div>
 
@@ -1453,23 +1469,21 @@
           </div>
           <button class="update-btn" id="update-btn" type="button">Check for Updates</button>
         </div>
-      </div>
-
-      <div class="set-section">
-        <div class="set-caption">Appearance</div>
-        <div class="set-group">
-          <div class="set-row">
-            <div class="set-text">
-              <div class="set-name">Theme</div>
-            </div>
-            <select class="loud-select" id="theme-select" aria-label="Theme">
-              <option value="dark">Dark mode</option>
-              <option value="light">Light mode</option>
-            </select>
+        <div class="set-row">
+          <div class="set-text">
+            <div class="set-name">Theme</div>
           </div>
+          <select class="loud-select" id="theme-select" aria-label="Theme">
+            <option value="dark">Dark mode</option>
+            <option value="light">Light mode</option>
+          </select>
         </div>
       </div>
-
+      <div class="set-tabs" role="tablist" aria-label="Settings sections">
+        <button type="button" role="tab" class="on" aria-selected="true" data-set-tab="downloads"><i data-lucide="download" class="icon-sm"></i>Download Settings</button>
+        <button type="button" role="tab" aria-selected="false" data-set-tab="loudness"><i data-lucide="audio-lines" class="icon-sm"></i>Normalize Settings</button>
+      </div>
+      <div class="set-panel on" role="tabpanel" data-set-panel="downloads">
       <div class="set-section">
         <div class="set-caption">Downloads</div>
         <div class="set-group">
@@ -1487,6 +1501,38 @@
       </div>
 
       <div class="set-section">
+        <div class="set-caption">SoundCloud account</div>
+        <div class="set-group">
+          <div class="set-row stack">
+            <div class="set-text">
+              <div class="set-desc" id="sc-import-status">
+                Connects the SoundCloud account you're logged in with in that browser,
+                unlocking the highest quality your plan allows (256 kbps AAC and
+                original files where available).
+              </div>
+            </div>
+            <div class="folder-row sc-browsers">
+              <button class="browse-btn" data-sc-browser="chrome" type="button">Connect via Chrome</button>
+              <button class="browse-btn" data-sc-browser="safari" type="button">Safari</button>
+              <button class="browse-btn" data-sc-browser="edge" type="button">Edge</button>
+              <button class="browse-btn" data-sc-browser="firefox" type="button">Firefox</button>
+            </div>
+            <div class="sc-token-block">
+              <label class="sc-token-label" for="sc-token">SoundCloud token</label>
+              <div class="sc-token-row">
+                <input type="password" id="sc-token" placeholder="Not connected yet"
+                       autocomplete="off" spellcheck="false" />
+                <button class="browse-btn" id="sc-token-reveal" type="button" aria-pressed="false">Show</button>
+              </div>
+              <div class="set-desc">Filled in when you connect a browser above. To set it by hand, paste the value of the <b>oauth_token</b> cookie from soundcloud.com.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+      <div class="set-panel" role="tabpanel" data-set-panel="loudness">
+      <div class="set-section" id="set-loudness">
         <div class="set-caption">Loudness</div>
         <div class="set-group">
           <div class="set-row">
@@ -1548,36 +1594,34 @@
         </div>
       </div>
 
-      <div class="set-section">
-        <div class="set-caption">SoundCloud account</div>
+      <div class="set-section" id="set-normalize">
+        <div class="set-caption">Normalize mode</div>
         <div class="set-group">
+          <div class="set-row">
+            <div class="set-text">
+              <div class="set-name">Output</div>
+              <div class="set-desc">Replacing originals keeps cue points linked in your DJ software. Copies are new tracks to Rekordbox and Traktor, without your cue points.</div>
+            </div>
+            <select class="loud-select" id="norm-mode-select" aria-label="Normalize output">
+              <option value="replace">Replace originals (recommended)</option>
+              <option value="copy">Save copies</option>
+            </select>
+          </div>
           <div class="set-row stack">
             <div class="set-text">
-              <div class="set-desc" id="sc-import-status">
-                Connects the SoundCloud account you're logged in with in that browser,
-                unlocking the highest quality your plan allows (256 kbps AAC and
-                original files where available).
-              </div>
+              <div class="set-name" id="norm-dir-label"></div>
+              <div class="set-desc" id="norm-dir-desc"></div>
             </div>
-            <div class="folder-row sc-browsers">
-              <button class="browse-btn" data-sc-browser="chrome" type="button">Connect via Chrome</button>
-              <button class="browse-btn" data-sc-browser="safari" type="button">Safari</button>
-              <button class="browse-btn" data-sc-browser="edge" type="button">Edge</button>
-              <button class="browse-btn" data-sc-browser="firefox" type="button">Firefox</button>
-            </div>
-            <div class="sc-token-block">
-              <label class="sc-token-label" for="sc-token">SoundCloud token</label>
-              <div class="sc-token-row">
-                <input type="password" id="sc-token" placeholder="Not connected yet"
-                       autocomplete="off" spellcheck="false" />
-                <button class="browse-btn" id="sc-token-reveal" type="button" aria-pressed="false">Show</button>
-              </div>
-              <div class="set-desc">Filled in when you connect a browser above. To set it by hand, paste the value of the <b>oauth_token</b> cookie from soundcloud.com.</div>
+            <div class="folder-row">
+              <div class="folder-path" id="norm-dir-path"></div>
+              <button class="browse-btn" type="button" id="norm-dir-browse">Browse…</button>
+              <button class="norm-x" type="button" id="norm-dir-reset"><i data-lucide="rotate-ccw" class="icon-sm"></i></button>
             </div>
           </div>
         </div>
       </div>
 
+      </div>
     </div>
 
   </div>
@@ -1665,6 +1709,7 @@
     settingsBtn.addEventListener('click', () => {
       drawer.classList.add('open');
       settingsBtn.classList.add('active');
+      refreshNormPanel();   // fills the Normalize group's folder row
     });
     drawerClose.addEventListener('click', () => {
       drawer.classList.remove('open');
@@ -2922,7 +2967,29 @@
     contentEl.addEventListener('click', (e) => {
       if (e.target.closest('[data-goto-normalize]')) openNormPanel();
     });
-    document.getElementById('norm-change').addEventListener('click', () => settingsBtn.click());
+    // Settings tabs: one group of settings visible at a time.
+    function showSettingsTab(name) {
+      document.querySelectorAll('[data-set-tab]').forEach(b => {
+        const on = b.dataset.setTab === name;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-selected', String(on));
+      });
+      document.querySelectorAll('[data-set-panel]').forEach(p => p.classList.toggle('on', p.dataset.setPanel === name));
+      drawer.scrollTop = 0;
+    }
+    document.querySelectorAll('[data-set-tab]').forEach(b =>
+      b.addEventListener('click', () => showSettingsTab(b.dataset.setTab)));
+
+    // Change links open Settings at the matching group.
+    function openSettingsAt(id) {
+      const el = document.getElementById(id);
+      const panel = el && el.closest('[data-set-panel]');
+      if (panel) showSettingsTab(panel.dataset.setPanel);
+      settingsBtn.click();
+      if (el && !el.matches('.set-panel > :first-child')) drawer.scrollTop = el.offsetTop - 16;
+    }
+    document.getElementById('norm-change').addEventListener('click', () => openSettingsAt('set-loudness'));
+    document.getElementById('norm-out-change').addEventListener('click', () => openSettingsAt('set-normalize'));
 
     async function normPost(path, body) {
       const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2994,13 +3061,15 @@
       if (r.error) normStatus.textContent = r.error;
       refreshNormPanel();
     });
-    document.getElementById('norm-clear').addEventListener('click', async () => {
-      const finished = normState && normState.items.some(i => i.status === 'done' || i.status === 'error');
-      const pending  = normState && normState.items.some(i => i.status === 'ready' || i.status === 'analyzing');
-      await normPost('/files/remove', finished && pending ? { finished: true } : { all: true });
-      refreshNormPanel();
-    });
+    // Clear list lives in the list's header row, so it is handled here.
     normList.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-norm-clear]')) {
+        const finished = normState && normState.items.some(i => i.status === 'done' || i.status === 'error');
+        const pending  = normState && normState.items.some(i => i.status === 'ready' || i.status === 'analyzing');
+        await normPost('/files/remove', finished && pending ? { finished: true } : { all: true });
+        refreshNormPanel();
+        return;
+      }
       const x = e.target.closest('[data-norm-remove]');
       if (!x) return;
       await normPost('/files/remove', { id: x.dataset.normRemove });
@@ -3036,23 +3105,33 @@
     function renderNormPanel() {
       if (!normState) return;
       const st = normState.settings;
+      const item = (label, value) => `<span class="norm-sum-item"><span>${label}</span><b>${value}</b></span>`;
+      const homeless = path => (path || '').replace(/^(\/Users\/[^/]+|[A-Za-z]:\\Users\\[^\\]+)/, '~');
       document.getElementById('norm-summary').innerHTML =
-        `<span class="norm-cap">Target</span><b>${st.target.toFixed(1)} LUFS</b> · ceiling ${st.ceiling.toFixed(1)} dBTP · ` +
-        (st.pure_gain ? 'no limiting' : `max limiting ${st.max_limit.toFixed(1)} dB`);
+        item('Target', `${st.target.toFixed(1)} LUFS`) +
+        item('Ceiling', `${st.ceiling.toFixed(1)} dBTP`) +
+        item('Limiting', st.pure_gain ? 'off' : `up to ${st.max_limit.toFixed(1)} dB`);
       const replace = normMode() === 'replace';
       const custom = replace ? normState.backup_root !== normState.default_backup_root : !!normState.copy_dir;
+      document.getElementById('norm-out-summary').innerHTML = replace
+        ? item('Output', 'Replace originals') + item('Backups', escHtml(homeless(normState.backup_root)))
+        : item('Output', 'Save copies') + item('Saved to', normState.copy_dir ? escHtml(homeless(normState.copy_dir)) : 'a “Normalized” folder next to each track');
       const pathEl = document.getElementById('norm-dir-path');
       pathEl.textContent = pathEl.title = replace ? normState.backup_root
         : (normState.copy_dir || 'Next to each track, in a "Normalized" folder');
       pathEl.classList.toggle('placeholder', !custom);
-      document.getElementById('norm-dir-label').textContent = replace ? 'Back up to' : 'Save to';
+      document.getElementById('norm-dir-label').textContent = replace ? 'Backup folder' : 'Save copies to';
+      document.getElementById('norm-dir-desc').textContent = replace
+        ? 'Each original is copied here before its track is normalized.'
+        : 'Leave as the default to save each copy in a "Normalized" folder next to its track.';
       const reset = document.getElementById('norm-dir-reset');
       reset.style.visibility = custom ? 'visible' : 'hidden';
       reset.title = replace ? 'Back to the default backup folder' : 'Back to next to each track';
 
       const items = normState.items;
       document.getElementById('norm-drop').classList.toggle('compact', items.length > 0);
-      const listHead = '<div class="norm-row norm-head"><span>Track</span><span>LUFS</span><span>Change</span><span></span></div>';
+      const listHead = `<div class="norm-row norm-head"><span>Track</span><span>LUFS</span>
+        <span class="norm-head-end"><span>Change</span><button class="whats-new-link" type="button" data-norm-clear ${normState.processing ? 'disabled' : ''}>Clear list</button></span></div>`;
       normList.innerHTML = items.length ? listHead + items.map(i => {
         const info = i.info;
         const lufs = info ? `<b>${info.lufs.toFixed(1)}</b> LUFS` : '';

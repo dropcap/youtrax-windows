@@ -32,6 +32,7 @@ import file_normalizer
 from version import get_changelog, get_version
 
 import json
+import time
 import urllib.request
 import uuid
 from pathlib import Path
@@ -428,7 +429,9 @@ if __name__ == '__main__':
     width, height = initial_window_size()
     _window = webview.create_window(
         'YouTrax',
-        f'http://localhost:{PORT}',
+        # A per-launch query string keeps the web view from reusing a page
+        # it cached from an older version of the app.
+        f'http://localhost:{PORT}/?v={get_version()}-{int(time.time())}',
         js_api=Api(),
         width=width,
         height=height,
