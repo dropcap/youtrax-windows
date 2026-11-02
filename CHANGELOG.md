@@ -9,7 +9,7 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
-## [1.4.0] - 2026-11-02
+## [2.0.0] - 2026-11-02
 
 ### Added
 - Loudness normalization: every download is set to the same loudness, −11.5 LUFS by default, so tracks play back at a matching level without riding the gain. Loud tracks are turned down; quiet tracks are turned up, with a transparent limiter catching any peaks. The gain is applied during the one MP3 encode, so there is no extra quality loss
