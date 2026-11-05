@@ -9,6 +9,8 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-05
+
 ### Added
 - A "Show in File Explorer when done" switch in Settings › Download Settings. Turn it off to stop a File Explorer window opening every time a download finishes. It stays on unless you change it
 
