@@ -1497,6 +1497,16 @@
               <button class="browse-btn" id="browse-btn" type="button">Browse…</button>
             </div>
           </div>
+          <div class="set-row">
+            <div class="set-text">
+              <div class="set-name">Show in Finder when done</div>
+              <div class="set-desc">Opens a Finder window with the new MP3 selected each time a download finishes.</div>
+            </div>
+            <label class="toggle-switch" aria-label="Show in Finder when done">
+              <input type="checkbox" id="reveal-toggle" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -1855,10 +1865,30 @@
         const data = await res.json();
         if (data.download_dir) applyDir(data.download_dir);
         if (data.theme) applyTheme(data.theme);
+        revealOnDone = data.reveal_on_done !== false;
+        revealToggle.checked = revealOnDone;
         applyLoudness({ ...LOUD_DEFAULTS, ...data });
         scTokenInput.value = data.soundcloud_token || '';
       } catch (_) {}
     }
+    // On by default: reveal each finished download in Finder.
+    let revealOnDone = true;
+    const revealToggle = document.getElementById('reveal-toggle');
+    if (!isMacPlatform) {
+      const row = revealToggle.closest('.set-row');
+      row.querySelector('.set-name').textContent = 'Show in File Explorer when done';
+      row.querySelector('.set-desc').textContent = 'Opens a File Explorer window with the new MP3 selected each time a download finishes.';
+      revealToggle.closest('label').setAttribute('aria-label', 'Show in File Explorer when done');
+    }
+    revealToggle.addEventListener('change', () => {
+      revealOnDone = revealToggle.checked;
+      fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reveal_on_done: revealOnDone }),
+      }).catch(() => {});
+    });
+
     async function persistSettings(dir) {
       await fetch('/settings', {
         method: 'POST',
@@ -2858,7 +2888,7 @@
             tab.filename = job.filename || '';
             tab.qualityNote = job.quality_note || '';
             tab.loudness = job.loudness || null;
-            if (jobId) fetch(`/reveal/${jobId}`);
+            if (jobId && revealOnDone) fetch(`/reveal/${jobId}`);
             showToast({ status: 'done', filename: tab.filename });
           } else {
             tab.status = 'error';
@@ -3193,7 +3223,9 @@
     document.addEventListener('dragenter', (e) => {
       e.preventDefault();
       dragDepth++;
-      if (dragDepth === 1) setDragActive(true, [...e.dataTransfer.types].includes('Files'));
+      // A browser link also lists 'Files' (its .webloc), so a URI list wins.
+      const types = [...e.dataTransfer.types];
+      if (dragDepth === 1) setDragActive(true, types.includes('Files') && !types.includes('text/uri-list'));
     });
 
     document.addEventListener('dragover', (e) => {
@@ -3211,25 +3243,36 @@
       dragDepth = 0;
       setDragActive(false);
 
-      // Audio files: the desktop app picks up their paths natively (see
-      // mac_app.py) and opens the Normalize panel; a plain browser can't.
-      if (e.dataTransfer.files && e.dataTransfer.files.length) {
-        if (!window.pywebview) {
-          openNormPanel();
-          normStatus.textContent = 'Dropping files needs the YouTrax app. Use Add Tracks… instead.';
-        }
+      // A link has to be checked before files: a link dragged out of a
+      // browser on macOS also carries a .webloc file, so WebKit reports a
+      // file even though the user dropped a URL.
+      const url = droppedUrl(e.dataTransfer);
+      if (url) {
+        // Reuse the same fetch flow as the URL bar
+        setAppMode('download');
+        urlInput.value = url;
+        fetchBtn.click();
         return;
       }
 
-      // Try URI list first (dragging address bar / links), fall back to plain text
-      const url = (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || '').trim().split('\n')[0].trim();
-      if (!url || !url.startsWith('http')) return;
-
-      // Reuse the same fetch flow as the URL bar
-      setAppMode('download');
-      urlInput.value = url;
-      fetchBtn.click();
+      // Audio files: the desktop app picks up their paths natively (see
+      // mac_app.py) and opens the Normalize panel; a plain browser can't.
+      if (e.dataTransfer.files && e.dataTransfer.files.length && !window.pywebview) {
+        openNormPanel();
+        normStatus.textContent = 'Dropping files needs the YouTrax app. Use Add Tracks… instead.';
+      }
     });
+
+    // The http(s) link in a drop, if any. Tries the URI list first (links and
+    // address bars), then plain text; file:// entries are not links.
+    function droppedUrl(dt) {
+      for (const type of ['text/uri-list', 'text/plain']) {
+        const line = (dt.getData(type) || '').split('\n')
+          .map(s => s.trim()).find(s => s && !s.startsWith('#'));
+        if (line && /^https?:\/\//i.test(line)) return line;
+      }
+      return '';
+    }
   </script>
 </body>
 </html>

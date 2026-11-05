@@ -9,6 +9,12 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+### Added
+- A "Show in File Explorer when done" switch in Settings › Download Settings. Turn it off to stop a File Explorer window opening every time a download finishes. It stays on unless you change it
+
+### Fixed
+- Dragging a link from the browser's address bar onto YouTrax starts the download, even when the drag also carries a link file
+
 ## [2.0.1] - 2026-11-02
 
 ### Changed
