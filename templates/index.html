@@ -947,25 +947,27 @@
       --led-off:     #2C2836;
       --ring:        0 0 0 3px rgba(110,78,250,.3);
     }
+    /* Light mode: soft neutral greys rather than white, so it is easy on the
+       eyes in a dim booth. The purple accent and text colors are unchanged. */
     [data-theme="light"] {
-      --bg:          #E9E7F0;
-      --surface:     #F6F5FA;
-      --border:      #D8D4E2;
-      --line2:       #C9C4D6;
+      --bg:          #D7D8DC;
+      --surface:     #E4E5E8;
+      --border:      #C8CACF;
+      --line2:       #B8BBC1;
       --accent-text: #5B3DE0;
       --text:        #1C1828;
       --muted:       #5F5873;
-      --faint:       #7A738D;
-      --input-bg:    #FFFFFF;
-      --card-bg:     linear-gradient(180deg, #FAF9FD 0, #F2F0F7 100%);
-      --head-bg:     linear-gradient(180deg, #FFFFFF, #F4F2F9);
-      --well:        #EFEDF5;
-      --well-shadow: inset 0 1px 3px rgba(40,30,80,.14);
-      --key-bg:      linear-gradient(180deg, #FFFFFF, #F1EFF6);
-      --key-bg-h:    linear-gradient(180deg, #FFFFFF, #E9E6F1);
-      --key-border:  #D3CEDF;
-      --key-shadow:  0 1px 2px rgba(40,30,80,.14);
-      --led-off:     #CFCADB;
+      --faint:       #625F6B;
+      --input-bg:    #EDEEF0;
+      --card-bg:     linear-gradient(180deg, #E8E9EC 0, #E0E1E5 100%);
+      --head-bg:     linear-gradient(180deg, #EBECEF, #E2E3E6);
+      --well:        #DCDDE1;
+      --well-shadow: inset 0 1px 3px rgba(30,32,44,.16);
+      --key-bg:      linear-gradient(180deg, #F0F1F3, #E0E1E5);
+      --key-bg-h:    linear-gradient(180deg, #F3F4F6, #D9DADF);
+      --key-border:  #C2C4CA;
+      --key-shadow:  0 1px 2px rgba(30,32,44,.16);
+      --led-off:     #C1C3C9;
     }
 
     body {
@@ -1103,7 +1105,7 @@
       content: ''; position: absolute; inset: 0; z-index: -1;
       background: linear-gradient(180deg, transparent 0, #15131B 10px);
     }
-    [data-theme="light"] .download-bar::before { background: linear-gradient(180deg, transparent 0, #F3F1F8 10px); }
+    [data-theme="light"] .download-bar::before { background: linear-gradient(180deg, transparent 0, #E0E1E5 10px); }
 
     /* ── Progress ── */
     .bar-wrap { height: 8px; background: var(--well); box-shadow: var(--well-shadow); }
@@ -1165,7 +1167,7 @@
     .set-section { margin-top: 20px; }
     .set-caption { font-size: .69rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px 2px; }
     .set-group { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.015); }
-    [data-theme="light"] .set-group { background: #fff; }
+    [data-theme="light"] .set-group { background: var(--input-bg); }
     .set-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 16px; }
     .set-group > .set-row + .set-row, .loud-controls > .set-row, .set-group > .loud-controls { border-top: 1px solid var(--border); }
     .loud-controls > .set-row:first-child { border-top: 0; }
@@ -1256,7 +1258,7 @@
       display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 5px;
       background: #0B0A0F; color: #D9D3E8; box-shadow: inset 0 1px 2px rgba(0,0,0,.7); font-size: .74rem; font-weight: 500;
     }
-    [data-theme="light"] .norm-tag { background: #E4E1EC; color: var(--text); box-shadow: inset 0 1px 2px rgba(40,30,80,.15); }
+    [data-theme="light"] .norm-tag { background: #D5D7DB; color: var(--text); box-shadow: inset 0 1px 2px rgba(40,30,80,.15); }
     .norm-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--led-off); flex-shrink: 0; }
     .norm-tag.up, .norm-tag.down { color: var(--text); }
     .norm-tag.up::before   { background: #FFC46B; box-shadow: 0 0 6px rgba(255,196,107,.7); }
@@ -1266,7 +1268,7 @@
     .norm-tag.err { color: var(--error); }
     .norm-tag.err::before  { background: var(--error); box-shadow: 0 0 6px rgba(240,122,134,.8); }
     .norm-tag.done { background: #0B0A0F; color: #7DE0AE; }
-    [data-theme="light"] .norm-tag.done { background: #E4E1EC; color: #1F8A56; }
+    [data-theme="light"] .norm-tag.done { background: #D5D7DB; color: #1F8A56; }
     .norm-tag.done::before { display: none; }
     .norm-tag.done svg { filter: drop-shadow(0 0 4px rgba(95,203,151,.8)); }
     .norm-x { border-radius: 6px; width: 26px; height: 26px; display: grid; place-items: center; }
