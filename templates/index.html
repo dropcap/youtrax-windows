@@ -1507,6 +1507,16 @@
               <span class="toggle-track"></span>
             </label>
           </div>
+          <div class="set-row">
+            <div class="set-text">
+              <div class="set-name">Add artist to title tag</div>
+              <div class="set-desc">Writes the title tag as "Title - Artist". The filename is unchanged.</div>
+            </div>
+            <label class="toggle-switch" aria-label="Add artist to title tag">
+              <input type="checkbox" id="artist-title-toggle" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -1867,6 +1877,7 @@
         if (data.theme) applyTheme(data.theme);
         revealOnDone = data.reveal_on_done !== false;
         revealToggle.checked = revealOnDone;
+        artistTitleToggle.checked = data.artist_in_title === true;
         applyLoudness({ ...LOUD_DEFAULTS, ...data });
         scTokenInput.value = data.soundcloud_token || '';
       } catch (_) {}
@@ -1886,6 +1897,16 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reveal_on_done: revealOnDone }),
+      }).catch(() => {});
+    });
+
+    // Off by default: the title tag is written exactly as typed.
+    const artistTitleToggle = document.getElementById('artist-title-toggle');
+    artistTitleToggle.addEventListener('change', () => {
+      fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist_in_title: artistTitleToggle.checked }),
       }).catch(() => {});
     });
 

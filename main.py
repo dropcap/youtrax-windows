@@ -450,11 +450,17 @@ if __name__ == '__main__':
 
     # Audio files dragged in from Explorer go to the Normalize Files panel.
     # Only pywebview's native drop handler sees their real paths.
-    from webview.dom import DOMEventHandler
+    from webview.dom import DOMEventHandler, _dnd_state
 
     def _on_file_drop(event):
         files = (event.get('dataTransfer') or {}).get('files') or []
         paths = [f['pywebviewFullPath'] for f in files if f.get('pywebviewFullPath')]
+        # pywebview attaches a path only to files WebKit/WebView2 also lists
+        # by name; take the ones it gathered but couldn't match too, so drags
+        # from music apps aren't dropped (and the list doesn't grow).
+        unmatched = _dnd_state['paths']
+        paths += [path for _name, path in unmatched]
+        del unmatched[:len(unmatched)]
         added = file_normalizer.add_paths(paths) if paths else 0
         if added:
             _window.evaluate_js(f'window.onTracksDropped && window.onTracksDropped({added})')

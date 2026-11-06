@@ -13,7 +13,7 @@ from flask import Flask, Response, jsonify, render_template, request, send_file
 import app_updater
 import loudness
 from version import get_changelog, get_version
-from tagger import apply_tags
+from tagger import apply_tags, title_with_artist
 from bpm import detect_bpm
 from ytdl import (
     EXTRACTOR_ARGS, SETTINGS_FILE, apply_soundcloud_auth, download_excerpt,
@@ -211,13 +211,20 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict,
             except Exception:
                 pass
 
+        # Optionally write the title tag as "Title - Artist". The filename
+        # below is built from the title as typed, so it stays
+        # "Title - Artist.mp3" either way, never "Title - Artist - Artist".
+        title = (tags.get('title') or '').strip()
+        artist = (tags.get('artist') or '').strip()
+        if _read_settings_file().get('artist_in_title'):
+            tags['title'] = title_with_artist(title, artist)
+            tags['artist'] = artist
+
         apply_tags(output_file, tags, artwork=artwork_bytes)
 
         # Rename to "Title - Artist.mp3" using user-supplied tags
-        title = (tags.get('title') or '').strip()
-        artist = (tags.get('artist') or '').strip()
         if title and artist:
-            new_name = sanitize_filename(f"{title} - {artist}") + '.mp3'
+            new_name = sanitize_filename(title_with_artist(title, artist)) + '.mp3'
             old_path = Path(output_file)
             new_path = old_path.parent / new_name
             if new_path != old_path and not new_path.exists():

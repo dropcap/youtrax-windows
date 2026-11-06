@@ -55,6 +55,24 @@ def _mb_setup():
     return mb
 
 
+def title_with_artist(title: str, artist: str) -> str:
+    """
+    Join title and artist as "Title - Artist" for the title tag.
+
+    Both are trimmed first. With no artist the title is returned alone, and a
+    title that already ends in " - Artist" is left as it is, so the artist is
+    never appended twice.
+    """
+    title = (title or '').strip()
+    artist = (artist or '').strip()
+    if not title or not artist:
+        return title
+    suffix = f' - {artist}'
+    if title.lower().endswith(suffix.lower()):
+        return title
+    return title + suffix
+
+
 def search_musicbrainz(artist: str, title: str) -> Optional[dict]:
     """
     Search MusicBrainz for a recording matching artist + title.
