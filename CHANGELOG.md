@@ -9,6 +9,11 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-11-06
+
+### Changed
+- Light mode uses soft grey tones instead of bright white, so it is easier on the eyes. Dark mode is unchanged
+
 ## [2.2.0] - 2026-11-06
 
 ### Added
