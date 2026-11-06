@@ -9,6 +9,14 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-06
+
+### Added
+- An "Add artist to title tag" switch in Settings › Download Settings. When on, the title tag is written as "Title - Artist", with stray spaces trimmed from both. The filename stays "Title - Artist.mp3", and the artist is never added twice. Off by default
+
+### Fixed
+- Tracks dragged in from music apps that drag file links are no longer ignored by Normalize Files
+
 ## [2.1.0] - 2026-11-05
 
 ### Added
