@@ -698,6 +698,10 @@
     .norm-name { min-width: 0; }
     .norm-name div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .norm-name small { color: var(--muted); font-size: .72rem; }
+    .norm-q { color: var(--warn); cursor: help; }
+    .norm-q.poor { color: var(--error); }
+    [data-theme="light"] .norm-q { color: #8A5A00; }
+    [data-theme="light"] .norm-q.poor { color: #B4232F; }
     .norm-lufs { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; text-align: right; }
     .norm-lufs b { color: var(--text); font-weight: 600; }
     .norm-tag {
@@ -709,6 +713,18 @@
     .norm-tag.done { background: rgba(76,175,130,.14); color: var(--success); }
     .norm-x { background: none; border: none; color: var(--muted); cursor: pointer; padding: 2px; width: auto; }
     .norm-x:hover { color: var(--text); }
+    .ctx-menu {
+      position: fixed; z-index: 100; min-width: 200px; padding: 5px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: .82rem;
+    }
+    .ctx-menu button {
+      display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border: none;
+      border-radius: 5px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+    }
+    .ctx-menu button:hover:not(:disabled), .ctx-menu button:focus-visible { background: var(--accent); color: #fff; outline: none; }
+    .ctx-menu button:disabled { color: var(--muted); cursor: default; }
+    .ctx-menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 6px; }
     .norm-empty { text-align: center; color: var(--muted); font-size: .8rem; padding: 18px 0; }
     .norm-out { margin-bottom: 12px; }
     .norm-out-head { display: flex; align-items: center; gap: 6px; }
@@ -1132,6 +1148,8 @@
       font-size: .78rem; line-height: 1.45; color: var(--warn); text-align: left;
     }
     .quality-note svg { flex-shrink: 0; margin-top: 1px; }
+    .quality-note.source-note { max-width: none; margin: 4px 0 12px; }
+    [data-theme="light"] .quality-note { color: #8A5A00; }
     .loud-badge {
       gap: 8px; margin-top: 14px; padding: 0 12px; height: 32px; border-radius: 8px;
       background: var(--well); box-shadow: var(--well-shadow); border: 1px solid var(--border);
@@ -2149,6 +2167,8 @@
       try {
         const res = await fetch(`/bpm?url=${encodeURIComponent(tab.url)}`);
         const data = await res.json();
+        // The same excerpt reveals the source's true quality before downloading.
+        if (res.ok && data.quality_note) tab.sourceNote = data.quality_note;
         if (!res.ok || !data.bpm) throw new Error(data.error || 'no bpm');
         if (tab.bpmState !== 'manual') {
           tab.bpm = String(data.bpm);
@@ -2192,6 +2212,7 @@
         eta: '',
         filename: '',
         qualityNote: '',
+        sourceNote: '',
         loudness: null,
         error: '',
         artworkGridVisible: false,
@@ -2412,6 +2433,11 @@
                 <label for="tag-comments">Comments</label>
                 <input id="tag-comments" type="text" value="${escHtml(tab.comments)}" placeholder="Optional" />
               </div>
+              ${tab.sourceNote ? `
+              <div class="quality-note source-note">
+                <i data-lucide="triangle-alert" class="icon-sm"></i>
+                <span>${escHtml(tab.sourceNote)}</span>
+              </div>` : ''}
               <div class="download-bar">
                 <button class="btn-primary" id="download-btn" type="button"><i data-lucide="download" class="icon-md"></i>Download MP3</button>
               </div>
@@ -2912,7 +2938,8 @@
             tab.qualityNote = job.quality_note || '';
             tab.loudness = job.loudness || null;
             if (jobId && revealOnDone) fetch(`/reveal/${jobId}`);
-            showToast({ status: 'done', filename: tab.filename });
+            showToast({ status: 'done', filename: tab.filename,
+                        lowQuality: (job.source_cutoff_hz || 99999) < 17000 });
           } else {
             tab.status = 'error';
             tab.error = job.error || 'Download failed';
@@ -2968,9 +2995,11 @@
         toastTitle.textContent = job.error || 'Download failed';
         toastSub.textContent = '';
       } else {
-        toastIcon.innerHTML = '<i data-lucide="check" class="icon-md"></i>';
+        toastIcon.innerHTML = `<i data-lucide="${job.lowQuality ? 'triangle-alert' : 'check'}" class="icon-md"></i>`;
         toastTitle.textContent = job.filename;
-        toastSub.textContent = `Saved to ${savedDownloadDir || '~/Downloads'}`;
+        toastSub.textContent = job.lowQuality
+          ? 'Lower-quality source. Open its tab for details.'
+          : `Saved to ${savedDownloadDir || '~/Downloads'}`;
       }
       refreshIcons(toast);
       requestAnimationFrame(() => toast.classList.add('visible'));
@@ -3129,6 +3158,69 @@
       refreshNormPanel();
     });
 
+    // Right-click a track: reveal it (or its copy / backup) in Finder or File Explorer.
+    const revealLabel = isMacPlatform ? 'Finder' : 'File Explorer';
+    let ctxMenu = null;
+    function closeCtxMenu() {
+      if (!ctxMenu) return;
+      ctxMenu.remove(); ctxMenu = null;
+      document.removeEventListener('mousedown', ctxOutside, true);
+    }
+    function ctxOutside(e) { if (ctxMenu && !ctxMenu.contains(e.target)) closeCtxMenu(); }
+    window.addEventListener('blur', closeCtxMenu);
+    window.addEventListener('resize', closeCtxMenu);
+    normList.addEventListener('scroll', closeCtxMenu, true);
+
+    async function normReveal(id, which) {
+      const res = await normPost('/files/reveal', { id, which });
+      if (res.error) normStatus.textContent = res.error;
+    }
+
+    normList.addEventListener('contextmenu', (e) => {
+      const row = e.target.closest('[data-norm-id]');
+      if (!row || !normState) return;
+      const item = normState.items.find(i => i.id === row.dataset.normId);
+      if (!item) return;
+      e.preventDefault();
+      closeCtxMenu();
+      const done = item.status === 'done' && item.result;
+      const entries = [
+        { label: `Show in ${revealLabel}`, run: () => normReveal(item.id, 'track') },
+        done && item.result.output !== item.path &&
+          { label: 'Show Normalized Copy', run: () => normReveal(item.id, 'output') },
+        done && item.result.backup &&
+          { label: 'Show Original Backup', run: () => normReveal(item.id, 'backup') },
+        'sep',
+        { label: 'Remove from List', disabled: normState.processing,
+          run: async () => { await normPost('/files/remove', { id: item.id }); refreshNormPanel(); } },
+      ].filter(Boolean);
+      ctxMenu = document.createElement('div');
+      ctxMenu.className = 'ctx-menu';
+      ctxMenu.setAttribute('role', 'menu');
+      for (const en of entries) {
+        if (en === 'sep') { ctxMenu.appendChild(document.createElement('hr')); continue; }
+        const b = document.createElement('button');
+        b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = en.label; b.disabled = !!en.disabled;
+        b.addEventListener('click', () => { closeCtxMenu(); en.run(); });
+        ctxMenu.appendChild(b);
+      }
+      document.body.appendChild(ctxMenu);
+      // Keep the menu on screen near the window's right and bottom edges.
+      const r = ctxMenu.getBoundingClientRect();
+      ctxMenu.style.left = `${Math.min(e.clientX, innerWidth - r.width - 6)}px`;
+      ctxMenu.style.top = `${Math.min(e.clientY, innerHeight - r.height - 6)}px`;
+      document.addEventListener('mousedown', ctxOutside, true);
+    });
+    // Like a native menu: nothing is highlighted until an arrow key is pressed.
+    document.addEventListener('keydown', (k) => {
+      if (!ctxMenu) return;
+      const btns = [...ctxMenu.querySelectorAll('button:not(:disabled)')];
+      const at = btns.indexOf(document.activeElement);
+      if (k.key === 'Escape') { k.preventDefault(); closeCtxMenu(); }
+      else if (k.key === 'ArrowDown') { k.preventDefault(); btns[(at + 1) % btns.length].focus(); }
+      else if (k.key === 'ArrowUp') { k.preventDefault(); btns[(at < 0 ? 0 : at) - 1 < 0 ? btns.length - 1 : at - 1].focus(); }
+    });
+
     async function refreshNormPanel() {
       try { normState = await (await fetch('/files')).json(); } catch (_) { return; }
       renderNormPanel();
@@ -3153,6 +3245,24 @@
       if (a.skip) return `<span class="norm-tag">${escHtml(a.note)}</span>`;
       if (a.limit_db > 0) return `<span class="norm-tag ${a.gain_db > 0 ? 'up' : 'down'}">${signed(a.gain_db)} dB<span class="norm-lim">· limit ${a.limit_db.toFixed(1)}${a.capped ? ' · capped' : ''}</span></span>`;
       return `<span class="norm-tag ${a.gain_db > 0 ? 'up' : 'down'}">${signed(a.gain_db)} dB</span>`;
+    }
+
+    // Lossy encoders cut the highs at a frequency set by their bitrate, so the
+    // cutoff reveals the real source quality even when the header says 320k.
+    function normQualityTier(info) {
+      const hz = info && info.cutoff_hz;
+      if (!hz || hz >= 19000) return null;
+      if (hz >= 17000) return { cls: '', label: '~192k source' };
+      if (hz >= 14500) return { cls: '', label: '~128k source' };
+      return { cls: 'poor', label: 'low-quality source' };
+    }
+
+    function normQuality(info) {
+      const t = normQualityTier(info);
+      if (!t) return '';
+      const khz = (info.cutoff_hz / 1000).toFixed(1);
+      const tip = `The highs stop at ${khz} kHz, so this was made from a lower-quality source than its bitrate says. Re-encoding can't bring back what was cut, so look for a better copy.`;
+      return ` · <span class="norm-q ${t.cls}" title="${escHtml(tip)}">${t.label}</span>`;
     }
 
     function renderNormPanel() {
@@ -3189,8 +3299,8 @@
         const info = i.info;
         const lufs = info ? `<b>${info.lufs.toFixed(1)}</b> LUFS` : '';
         const fmt = info ? `${escHtml(info.codec)}${info.kbps && info.codec !== 'flac' && !info.codec.startsWith('pcm') ? ' ' + info.kbps + 'k' : ''}` : '';
-        return `<div class="norm-row">
-          <div class="norm-name"><div title="${escHtml(i.path)}">${escHtml(i.name)}</div><small>${escHtml(i.folder)}${fmt ? ' · ' + fmt : ''}</small></div>
+        return `<div class="norm-row" data-norm-id="${i.id}">
+          <div class="norm-name"><div title="${escHtml(i.path)}">${escHtml(i.name)}</div><small>${escHtml(i.folder)}${fmt ? ' · ' + fmt : ''}${normQuality(info)}</small></div>
           <div class="norm-lufs">${lufs}</div>
           ${normTag(i)}
           <button class="norm-x" type="button" title="Remove" data-norm-remove="${i.id}" ${normState.processing ? 'disabled' : ''}><i data-lucide="x" class="icon-sm"></i></button>
@@ -3213,11 +3323,13 @@
         normState.processing ? `${done}/${done + working}` : analyzing ? '…' : '';
       const skipped = items.filter(i => i.status === 'ready' && i.action.skip).length;
       const refused = items.filter(i => i.status === 'refused').length;
+      const lowq = items.filter(i => normQualityTier(i.info)).length;
       normStatus.textContent = [
         analyzing && `Analyzing ${analyzing}…`,
         done && `${done} normalized`,
         skipped && `${skipped} already at target`,
         refused && `${refused} left unchanged to protect cue timing (hover for why)`,
+        lowq && `${lowq} from lower-quality source${lowq === 1 ? '' : 's'}`,
       ].filter(Boolean).join(' · ');
     }
 

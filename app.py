@@ -17,7 +17,7 @@ from tagger import apply_tags, title_with_artist
 from bpm import detect_bpm
 from ytdl import (
     EXTRACTOR_ARGS, SETTINGS_FILE, apply_soundcloud_auth, download_excerpt,
-    forbidden_hint, is_soundcloud, progressive_stream_url, sanitize_filename,
+    find_ffmpeg, forbidden_hint, is_soundcloud, progressive_stream_url, sanitize_filename,
     soundcloud_oauth_token, soundcloud_token_from_browser,
     store_soundcloud_token,
 )
@@ -139,6 +139,7 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict,
             'filename': None,
             'bpm': None,
             'quality_note': '',
+            'source_cutoff_hz': None,
             'loudness': None,
             'error': None,
         }
@@ -174,8 +175,19 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict,
                     f'Downloaded from SoundCloud\'s standard {kbps}stream — no '
                     'OAuth token is set. Add yours in Settings for full quality.'
                 )
+
+        # Whatever the file's bitrate, the source may have been worse: lossy
+        # encoders cut the highs at a frequency set by their bitrate, and that
+        # cut survives the 320 kbps re-encode. Warn so a better copy can be found.
+        cutoff = None
+        try:
+            cutoff = loudness.estimate_cutoff(find_ffmpeg() or 'ffmpeg', output_file)
+        except Exception:  # noqa: BLE001 - the quality hint is optional
+            pass
+        quality_note = quality_note or loudness.source_note(cutoff)
         with _lock:
             _jobs[job_id]['quality_note'] = quality_note
+            _jobs[job_id]['source_cutoff_hz'] = cutoff
 
         # Detect tempo unless the user typed one. The audio is already on
         # disk, so this costs a fraction of a second and no extra bandwidth.
@@ -258,18 +270,19 @@ def _run_download(job_id: str, url: str, output_dir: str, tags: dict,
 
 
 # ---------------------------------------------------------------------------
-# Tempo preview
+# Tempo + source-quality preview
 # ---------------------------------------------------------------------------
 
-_bpm_cache: dict[str, float] = {}
+_bpm_cache: dict[str, dict] = {}
 _bpm_cache_lock = threading.Lock()
 _BPM_CACHE_MAX = 200
 
 
-def bpm_for_url(url: str):
+def preview_for_url(url: str) -> dict:
     """
-    Estimate a URL's tempo from a short excerpt, so the tag editor can be
-    pre-filled before the user commits to a download.
+    Estimate a URL's tempo and true source quality from a short excerpt, so
+    the tag editor can show both before the user commits to a download.
+    Returns {'bpm': float | None, 'cutoff_hz': float | None}.
 
     Cached per URL: re-opening the same track is free, and the download job
     reuses nothing here, so the cost is paid at most once per link.
@@ -278,6 +291,14 @@ def bpm_for_url(url: str):
         if url in _bpm_cache:
             return _bpm_cache[url]
 
+    ffmpeg = find_ffmpeg() or 'ffmpeg'
+
+    def cutoff_of(src: str):
+        try:
+            return loudness.estimate_cutoff(ffmpeg, src)
+        except Exception:  # noqa: BLE001 - the quality hint is optional
+            return None
+
     if is_soundcloud(url):
         # SoundCloud's progressive MP3 is byte-seekable over plain HTTP, so
         # ffmpeg decodes the analysis window straight off the stream URL —
@@ -285,25 +306,41 @@ def bpm_for_url(url: str):
         # an empty file against SoundCloud's HLS streams anyway).
         stream = progressive_stream_url(url)
         if not stream:
-            return None  # the post-download pass still tags the full file
+            return {'bpm': None, 'cutoff_hz': None}  # the post-download pass still checks the file
         bpm, _confidence = detect_bpm(stream)
+        cutoff = cutoff_of(stream)
     else:
         import shutil
         import tempfile
 
         tmp = tempfile.mkdtemp(prefix='ytdl-bpm-')
         try:
+            # The excerpt keeps the source codec, so its cutoff is the download's.
             path = download_excerpt(url, tmp)
             bpm, _confidence = detect_bpm(path)
+            cutoff = cutoff_of(path)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    result = {'bpm': bpm or None, 'cutoff_hz': cutoff}
     if bpm:
         with _bpm_cache_lock:
             if len(_bpm_cache) >= _BPM_CACHE_MAX:
                 _bpm_cache.clear()
-            _bpm_cache[url] = bpm
-    return bpm
+            _bpm_cache[url] = result
+    return result
+
+
+def preview_response(url: str):
+    """Shared body of the /bpm endpoint (app.py and mac_app.py)."""
+    if not url:
+        return jsonify(error='URL is required'), 400
+    try:
+        p = preview_for_url(url)
+    except Exception as exc:
+        return jsonify(error=str(exc)), 400
+    return jsonify(bpm=p['bpm'], cutoff_hz=p['cutoff_hz'],
+                   quality_note=loudness.source_note(p['cutoff_hz']))
 
 
 # ---------------------------------------------------------------------------
@@ -426,17 +463,8 @@ def get_info():
 
 @app.get('/bpm')
 def get_bpm():
-    """Estimate tempo for a URL without downloading the full track."""
-    url = request.args.get('url', '').strip()
-    if not url:
-        return jsonify(error='URL is required'), 400
-    try:
-        bpm = bpm_for_url(url)
-    except Exception as exc:
-        return jsonify(error=str(exc)), 400
-    if not bpm:
-        return jsonify(error='Could not determine BPM'), 422
-    return jsonify(bpm=bpm)
+    """Estimate tempo and source quality for a URL without downloading the full track."""
+    return preview_response(request.args.get('url', '').strip())
 
 
 @app.post('/download')

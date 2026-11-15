@@ -195,8 +195,14 @@ def analyze_file(ffmpeg: str, path: str) -> dict:
     kbps = re.search(r', (\d+) kb/s', rest)
     bits = re.search(r'\((\d+) bit\)', rest) or re.search(r'pcm_[su](\d+)', codec)
     dur = re.search(r'Duration: (\d+):(\d+):([\d.]+)', proc.stderr)
+    duration = int(dur.group(1)) * 3600 + int(dur.group(2)) * 60 + float(dur.group(3)) if dur else 0.0
+    try:
+        cutoff = estimate_cutoff(ffmpeg, path, duration)
+    except Exception:  # noqa: BLE001 - the quality hint is optional
+        cutoff = None
     return {
-        'duration': int(dur.group(1)) * 3600 + int(dur.group(2)) * 60 + float(dur.group(3)) if dur else 0.0,
+        'duration': duration,
+        'cutoff_hz': cutoff,
         'codec': codec,
         'sample_rate': int(sr.group(1)) if sr else 44100,
         'kbps': int(kbps.group(1)) if kbps else 0,
@@ -204,6 +210,87 @@ def analyze_file(ffmpeg: str, path: str) -> dict:
         'lufs': round(lufs, 2), 'true_peak': round(tp, 2),
         'marked': read_marker(path),
     }
+
+
+def estimate_cutoff(ffmpeg: str, path: str, duration: float | None = None) -> float | None:
+    """Frequency (Hz) where a lossy encoder cut the top off *path*, or None.
+
+    The header bitrate says nothing about the source: a 128 kbps stream
+    re-encoded at 320 still reads "320k". Lossy encoders low-pass, though,
+    leaving a steep cliff in the averaged spectrum (about 16 kHz for 128 kbps,
+    19 kHz for 192, 20 kHz for 256-320); music on its own rolls off gradually.
+    Three 8 s windows across the track are averaged so a quiet intro or a
+    breakdown doesn't decide it.
+    """
+    import numpy as np
+    if duration is None:
+        err = subprocess.run([ffmpeg, '-hide_banner', '-i', path], capture_output=True,
+                             text=True, **_no_window()).stderr
+        d = re.search(r'Duration: (\d+):(\d+):([\d.]+)', err)
+        duration = int(d.group(1)) * 3600 + int(d.group(2)) * 60 + float(d.group(3)) if d else 0.0
+    sr, n = 44100, 4096
+    acc, frames = np.zeros(n // 2 + 1), 0
+    win = np.hanning(n)
+    for frac in (0.3, 0.5, 0.7):
+        start = max(0.0, duration * frac - 4)
+        out = subprocess.run(
+            [ffmpeg, '-v', 'error', '-ss', f'{start:.2f}', '-i', path, '-map', '0:a:0', '-t', '8',
+             '-ac', '1', '-ar', str(sr), '-f', 'f32le', '-'],
+            capture_output=True, **_no_window(),
+        ).stdout
+        x = np.frombuffer(out, dtype=np.float32)
+        if len(x) < n * 2:
+            continue
+        blocks = np.lib.stride_tricks.sliding_window_view(x, n)[::n // 2] * win
+        acc += (np.abs(np.fft.rfft(blocks, axis=1)) ** 2).sum(0)
+        frames += len(blocks)
+    if not frames:
+        return None
+    df = sr / n
+    db = 10 * np.log10(acc / frames + 1e-20)
+    s = np.convolve(db, np.ones(int(200 / df)) / int(200 / df), mode='same')  # ~200 Hz smoothing
+    ref = np.median(s[int(2000 / df):int(8000 / df)])
+    near, far, top = int(100 / df), int(700 / df), int(21800 / df)
+
+    def drop(i):
+        return s[i - far:i - near].mean() - s[i + near:i + far].mean()
+
+    for i in range(int(11000 / df), top - far):
+        below = s[i - far:i - near].mean()
+        # A cliff of 20+ dB, with everything above it staying well down
+        # (some encoders fill the cut band with faint noise; that still counts).
+        if below - s[i + near:i + far].mean() >= 20 and s[i + near:top].max() < min(below - 12, ref - 25):
+            edge = max(range(i, min(i + int(1000 / df), top - far)), key=drop)
+            return round(edge * df, -1)
+    return None
+
+
+def source_tier(cutoff_hz: float | None) -> str | None:
+    """Rough source bitrate implied by a lowpass cutoff; None means full quality."""
+    if cutoff_hz is None or cutoff_hz >= 19000:
+        return None
+    if cutoff_hz >= 17000:
+        return '~192k'
+    if cutoff_hz >= 14500:
+        return '~128k'
+    return 'low'
+
+
+def source_note(cutoff_hz: float | None) -> str:
+    """A warning for a download whose source is worse than full quality, else ''."""
+    tier = source_tier(cutoff_hz)
+    if not tier:
+        return ''
+    khz = f'{cutoff_hz / 1000:.1f}'
+    return {
+        'low': f'Very low-quality source: the audio stops at {khz} kHz, so the upload was '
+               f'made from a heavily compressed copy. Look for a better version.',
+        '~128k': f'Lower-quality source: the audio stops at {khz} kHz, about what a 128 kbps '
+                 f'file keeps, even though the MP3 will be 320 kbps. A better upload or a '
+                 f'purchased copy will sound fuller.',
+        '~192k': f'The audio stops at {khz} kHz, so the source is about 192 kbps. Usually '
+                 f'fine, but a full-quality copy may exist.',
+    }[tier]
 
 
 def _encoder_args(ext: str, info: dict) -> list[str]:

@@ -9,7 +9,10 @@ the blueprint below.
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import subprocess
+import sys
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -195,6 +198,38 @@ def files_remove():
             _items[:] = [i for i in _items if i['status'] not in ('done', 'error', 'refused')]
         else:
             _items[:] = [i for i in _items if i['id'] != data.get('id')]
+    return jsonify(ok=True)
+
+
+def reveal_in_file_manager(path: str) -> None:
+    """Open Finder (or File Explorer) with *path* selected."""
+    if sys.platform == 'darwin':
+        subprocess.run(['open', '-R', path], check=False)
+    elif sys.platform == 'win32':
+        # explorer.exe exits 1 even on success, so the result is ignored.
+        subprocess.run(['explorer', '/select,', os.path.normpath(path)], check=False)
+    else:
+        subprocess.run(['xdg-open', str(Path(path).parent)], check=False)
+
+
+@bp.post('/files/reveal')
+def files_reveal():
+    """Reveal a listed track, its normalized copy, or its backup.
+
+    Only paths the list itself holds can be revealed, never one from the request.
+    """
+    data = request.get_json(silent=True) or {}
+    which = data.get('which', 'track')
+    with _lock:
+        item = next((i for i in _items if i['id'] == data.get('id')), None)
+        result = (item or {}).get('result') or {}
+        path = {'track': (item or {}).get('path'), 'output': result.get('output'),
+                'backup': result.get('backup')}.get(which)
+    if not path:
+        return jsonify(error='Not found.'), 404
+    if not Path(path).exists():
+        return jsonify(error='That file is no longer there.'), 404
+    reveal_in_file_manager(path)
     return jsonify(ok=True)
 
 

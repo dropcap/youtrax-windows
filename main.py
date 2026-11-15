@@ -23,7 +23,7 @@ except ImportError:
     sys.exit("yt-dlp is required. Run: pip install yt-dlp")
 
 from app import (
-    _jobs, _lock, _run_download, _load_settings, _read_settings_file, _save_settings, bpm_for_url,
+    _jobs, _lock, _run_download, _load_settings, _read_settings_file, _save_settings, preview_response,
     import_soundcloud_token, info_for_url, reveal_in_explorer,
 )
 import app_updater
@@ -251,16 +251,7 @@ def soundcloud_import():
 
 @flask_app.get('/bpm')
 def get_bpm():
-    url = request.args.get('url', '').strip()
-    if not url:
-        return jsonify(error='URL is required'), 400
-    try:
-        bpm = bpm_for_url(url)
-    except Exception as exc:
-        return jsonify(error=str(exc)), 400
-    if not bpm:
-        return jsonify(error='Could not determine BPM'), 422
-    return jsonify(bpm=bpm)
+    return preview_response(request.args.get('url', '').strip())
 
 
 @flask_app.post('/download')
