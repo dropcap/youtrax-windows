@@ -9,6 +9,13 @@ release time — add bullets there as changes land.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-15
+
+### Added
+- Downloads warn when the source audio is lower quality than the 320 kbps MP3 suggests. The check reads where the highs stop: about 16 kHz means a ~128 kbps source, below about 14.5 kHz a very poor one. The warning appears in the tag editor before you download (from the same sample used to detect BPM), and again on the Downloaded screen and in the pop-up, so you can look for a better copy
+- Normalize Files marks each track made from a lower-quality source ("~192k source", "~128k source" or "low-quality source") next to its format. Hover for the exact cutoff. The status line counts them
+- Right-click a track in Normalize Files to show it in File Explorer, to show its normalized copy or original backup after a run, or to remove it from the list
+
 ## [2.2.1] - 2026-11-06
 
 ### Changed
